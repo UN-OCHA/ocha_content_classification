@@ -1,5 +1,5 @@
-entity.classification_workflow.collection:
+entity.ocha_classification_workflow.collection:
   title: 'Classification Workflows Overview'
-  route_name: entity.classification_workflow.collection
+  route_name: entity.ocha_classification_workflow.collection
   description: 'Manage Classification Workflows'
   parent: system.admin_config_content

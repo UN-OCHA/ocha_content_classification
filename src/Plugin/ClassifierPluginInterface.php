@@ -8,7 +8,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Interface for the ocha_content_classification plugins.
  */
-interface PluginInterface {
+interface ClassifierPluginInterface {
 
   /**
    * Get the plugin label.

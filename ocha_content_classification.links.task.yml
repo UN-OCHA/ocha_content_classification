@@ -1,34 +1,34 @@
-entity.classification_workflow.collection:
+entity.ocha_classification_workflow.collection:
   title: 'List'
-  route_name: entity.classification_workflow.collection
-  base_route: entity.classification_workflow.collection
+  route_name: entity.ocha_classification_workflow.collection
+  base_route: entity.ocha_classification_workflow.collection
 
-entity.classification_workflow.edit_form:
+entity.ocha_classification_workflow.edit_form:
   title: 'Edit'
-  route_name: entity.classification_workflow.edit_form
-  base_route: entity.classification_workflow.edit_form
+  route_name: entity.ocha_classification_workflow.edit_form
+  base_route: entity.ocha_classification_workflow.edit_form
 
-entity.classification_workflow.fields:
+entity.ocha_classification_workflow.fields:
   title: 'Fields'
-  route_name: entity.classification_workflow.fields_form
-  base_route: entity.classification_workflow.collection
+  route_name: entity.ocha_classification_workflow.fields_form
+  base_route: entity.ocha_classification_workflow.edit_form
 
-entity.classification_workflow.classifier:
+entity.ocha_classification_workflow.classifier:
   title: 'Classifier'
-  route_name: entity.classification_workflow.classifier_form
-  base_route: entity.classification_workflow.collection
+  route_name: entity.ocha_classification_workflow.classifier_form
+  base_route: entity.ocha_classification_workflow.edit_form
 
-entity.classification_workflow.delete_form:
+entity.ocha_classification_workflow.delete_form:
   title: 'Delete'
-  route_name: entity.classification_workflow.delete_form
-  base_route: entity.classification_workflow.edit_form
+  route_name: entity.ocha_classification_workflow.delete_form
+  base_route: entity.ocha_classification_workflow.edit_form
   weight: 10
 
-ocha_content_classification.requeue:
-  title: 'Requeue for classification'
-  route_name: ocha_content_classification.requeue
-  base_route: entity.node.canonical
-  weight: 50
+# ocha_content_classification.requeue:
+#   title: 'Requeue for classification'
+#   route_name: ocha_content_classification.requeue
+#   base_route: entity.node.canonical
+#   weight: 50
 
 ocha_content_classification.requeue:
   deriver: 'Drupal\ocha_content_classification\Plugin\Derivative\RequeueClassificationLocalTask'

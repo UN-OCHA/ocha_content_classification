@@ -8,8 +8,10 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
@@ -292,7 +294,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       '#type' => 'textarea',
       '#title' => $this->t('Prompt'),
       '#default_value' => $prompt,
-      '#description' => $this->t('Prompt to analyze and classify content. Use placeholders from analyzable and classifiable fields in the form <code>{placeholder}</code>. For analyzable fields, the placeholder will be replaced with the processed value. For classifiable fields, it will be replaced with a numbered list of terms (A1, A2, etc. for the first list in the prompt; B1, B2, etc. for the second). Structure the prompt to output XML, using the classifiable field <code>placeholders</code> as tags. Example: <code>&lt;theme&gt;Single item number ({theme:range})&lt;/theme&gt;</code>.'),
+      '#description' => $this->t('Prompt to analyze and classify content. Use placeholders from analyzable and classifiable fields in the form <code>{placeholder}</code>. For analyzable fields, the placeholder will be replaced with the processed value. For classifiable fields, it will be replaced with a numbered list of terms (A1, A2, etc. for the first list in the prompt; B1, B2, etc. for the second). Structure the prompt to output XML, using the classifiable field <code>placeholders</code> as tags. Example: <code>&lt;theme&gt;Single item number (B1-B20)&lt;/theme&gt;</code>.'),
       '#cols' => 100,
       '#rows' => max(15, floor(mb_strlen($prompt) / 100)),
       '#required' => TRUE,
@@ -530,11 +532,16 @@ class InferenceClassifier extends ClassifierPluginBase {
 
       // Check that we have the expected number of terms for the field.
       $term_id_count = count($term_ids);
-      if ($term_id_count < $settings['min'] || $term_id_count > $settings['max']) {
-        throw new UnexpectedValueException(strtr('Number of terms found for @field is outside the allowed range (@min-@max).', [
+      $min = $settings['min'];
+      $max = $settings['max'];
+      $is_under_min = $term_id_count < $min;
+      $is_over_max = $max !== -1 && $term_id_count > $max;
+
+      if ($is_under_min || $is_over_max) {
+        $range = $max === -1 ? "at least $min" : "$min-$max";
+        throw new UnexpectedValueException(strtr('Number of terms for @field is outside the allowed range (@range).', [
           '@field' => $entity->get($field_name)->getFieldDefinition()->getLabel(),
-          '@min' => $settings['min'],
-          '@max' => $settings['max'],
+          '@range' => $range,
         ]));
       }
 
@@ -613,7 +620,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   /**
    * {@inheritdoc}
    */
-  protected function validateEntity(ContentEntityInterface $entity): bool {
+  public function validateEntity(ContentEntityInterface $entity): bool {
     $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
 
     $analyzable_fields = $this->getEnabledFields('analyzable');

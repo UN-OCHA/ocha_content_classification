@@ -6,6 +6,10 @@ bypass ocha content classification:
   title: 'Bypass ocha content classifiction'
   description: 'Allow users to ignore the automated content classification when submitting content.'
 
+administer ocha content classification workflows:
+  title: 'Administer content classification workflows'
+  description: 'Allow users to administer classification workflows.'
+
 view ocha content classification workflows:
   title: 'View OCHA Content Classification Workflows'
   description: 'Allow users to view the list of classification workflows.'

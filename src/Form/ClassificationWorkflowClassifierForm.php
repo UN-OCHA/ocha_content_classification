@@ -38,6 +38,8 @@ class ClassificationWorkflowClassifierForm extends EntityForm {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
+    $form = parent::buildForm($form, $form_state);
+
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow */
     $workflow = $this->entity;
 
@@ -83,6 +85,14 @@ class ClassificationWorkflowClassifierForm extends EntityForm {
 
   /**
    * Ajax callback to update classifier settings based on selected plugin.
+   *
+   * @param array $form
+   *   The form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return array
+   *   The classifier settings form element.
    */
   public function updateClassifierSettings(array &$form, FormStateInterface $form_state): array {
     return $form['classifier']['settings'];
@@ -128,7 +138,7 @@ class ClassificationWorkflowClassifierForm extends EntityForm {
     // Save the selected classifier plugin ID.
     $plugin_id = $form_state->getValue(['classifier', 'id']);
     if (!empty($plugin_id) && $this->classifierPluginManager->hasDefinition($plugin_id)) {
-      $plugin_settings = $form_state->getValue(['classifier', 'settings']);
+      $plugin_settings = $form_state->getValue(['classifier', 'settings'], []);
       $plugin = $this->classifierPluginManager->createInstance($plugin_id, $plugin_settings);
 
       $entity->setClassifierPluginId($plugin_id);

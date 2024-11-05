@@ -22,6 +22,26 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function enabled(): bool;
 
   /**
+   * Set the workflow ID.
+   *
+   * @param ?string $id
+   *   Workflow ID.
+   *
+   * @return $this
+   */
+  public function setId(?string $id): self;
+
+  /**
+   * Set the workflow label.
+   *
+   * @param ?string $label
+   *   Workflow label.
+   *
+   * @return $this
+   */
+  public function setLabel(?string $label): self;
+
+  /**
    * Get the allowed maximum number of classification attempts.
    *
    * @return int
@@ -32,12 +52,12 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   /**
    * Set the allowed maximum number of classification attempts.
    *
-   * @param int $limit
+   * @param ?int $limit
    *   Attempts limit.
    *
    * @return $this
    */
-  public function setAttemptsLimit(int $limit): self;
+  public function setAttemptsLimit(?int $limit): self;
 
   /**
    * Get the entity type ID this workflow applies to.
@@ -50,12 +70,12 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   /**
    * Set the entity type ID this workflow applies to.
    *
-   * @param string $entity_type_id
+   * @param ?string $entity_type_id
    *   The entity type ID.
    *
    * @return $this
    */
-  public function setTargetEntityTypeId(string $entity_type_id): self;
+  public function setTargetEntityTypeId(?string $entity_type_id): self;
 
   /**
    * Get the bundle this workflow applies to.
@@ -68,12 +88,12 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   /**
    * Set the bundle this workflow applies to.
    *
-   * @param string $bundle
+   * @param ?string $bundle
    *   The bundle.
    *
    * @return $this
    */
-  public function setTargetBundle(string $bundle): self;
+  public function setTargetBundle(?string $bundle): self;
 
   /**
    * Get the classifier plugin ID.
@@ -86,12 +106,12 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   /**
    * Set the classifier plugin ID.
    *
-   * @param string $classifier_plugin_id
+   * @param ?string $plugin_id
    *   The classifier plugin ID.
    *
    * @return $this
    */
-  public function setClassifierPluginId(string $classifier_plugin_id): self;
+  public function setClassifierPluginId(?string $plugin_id): self;
 
   /**
    * Get the classifier settings.
@@ -109,7 +129,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    *
    * @return $this
    */
-  public function setClassifierPluginSettings(array $settings): self;
+  public function setClassifierPluginSettings(?array $settings): self;
 
   /**
    * Get the classifier plugin for this workflow.

@@ -7,12 +7,15 @@ namespace Drupal\ocha_content_classification\Plugin\Derivative;
 use Drupal\Component\Plugin\Derivative\DeriverBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides requeue local task definitions for all entity types.
  */
 class RequeueClassificationLocalTask extends DeriverBase implements ContainerDeriverInterface {
+
+  use StringTranslationTrait;
 
   /**
    * Creates a RequeueClassificationLocalTask object.
@@ -42,7 +45,7 @@ class RequeueClassificationLocalTask extends DeriverBase implements ContainerDer
     // Get the list of enabled classification workflows.
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface[] $workflows */
     $workflows = $this->entityTypeManager
-      ->getStorage('ocha_content_classification_workflow')
+      ->getStorage('ocha_classification_workflow')
       ->loadByProperties([
         'status' => 1,
       ]);

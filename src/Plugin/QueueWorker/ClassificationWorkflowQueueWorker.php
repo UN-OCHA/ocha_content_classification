@@ -21,7 +21,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Class for the classification workflow queue workers.
  *
  * @QueueWorker(
- *   id = "ocha_content_classification_workflow",
+ *   id = "ocha_classification_workflow",
  *   title = @Translation("Classification Workflow Queue Worker"),
  *   cron = {"time" = 30},
  *   deriver = "Drupal\ocha_content_classification\Plugin\Derivative\ClassificationWorkflowQueueWorkerDeriver"
@@ -266,7 +266,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase {
    */
   protected function getClassificationWorkflow(): ?ClassificationWorkflowInterface {
     return $this->entityTypeManager
-      ->getStorage('ocha_content_classification_workflow')
+      ->getStorage('ocha_classification_workflow')
       ->load($this->getDerivativeId());
   }
 

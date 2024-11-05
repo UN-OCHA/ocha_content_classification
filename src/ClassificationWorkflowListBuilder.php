@@ -104,4 +104,38 @@ class ClassificationWorkflowListBuilder extends ConfigEntityListBuilder {
     return $row + parent::buildRow($entity);
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function getDefaultOperations(EntityInterface $entity): array {
+    $operations = parent::getDefaultOperations($entity);
+    if ($entity->access('update') && $entity->hasLinkTemplate('edit-form')) {
+      $operations['edit'] = [
+        'title' => $this->t('Edit'),
+        'weight' => 10,
+        'url' => $this->ensureDestination($entity->toUrl('edit-form')),
+      ];
+      $operations['edit-fields'] = [
+        'title' => $this->t('Manage fields'),
+        'weight' => 11,
+        'url' => $this->ensureDestination($entity->toUrl('fields-form')),
+      ];
+      $operations['edit-classifier'] = [
+        'title' => $this->t('Manage classifier'),
+        'weight' => 12,
+        'url' => $this->ensureDestination($entity->toUrl('classifier-form')),
+      ];
+    }
+    if ($entity->access('delete') && $entity->hasLinkTemplate('delete-form')) {
+      $operations['delete'] = [
+        'title' => $this->t('Delete'),
+        'weight' => 100,
+        'url' => $this->ensureDestination($entity->toUrl('delete-form')),
+      ];
+    }
+
+    uasort($operations, '\Drupal\Component\Utility\SortArray::sortByWeightElement');
+    return $operations;
+  }
+
 }

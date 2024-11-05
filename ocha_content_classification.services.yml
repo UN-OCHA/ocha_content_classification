@@ -3,7 +3,7 @@ services:
     class: Drupal\ocha_content_classification\Plugin\ClassifierPluginManager
     parent: default_plugin_manager
 
-  entity.manager.classification_workflow:
+  entity.manager.ocha_classification_workflow:
     class: Drupal\ocha_content_classification\Entity\ClassificationWorkflowStorage
     arguments: ['@entity_type.manager']
     tags:

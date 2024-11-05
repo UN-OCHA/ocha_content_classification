@@ -1,4 +1,4 @@
-ocha_content_classification.classification_workflow.*:
+ocha_content_classification.ocha_classification_workflow.*:
   type: config_entity
   label: 'Classification Workflow.'
   mapping:
@@ -59,7 +59,7 @@ ocha_content_classification.classification_workflow.*:
           type: string
           label: 'Plugin ID.'
         settings:
-          type: ocha_content_classification.plugin.classifier
+          type: ocha_content_classification.plugin.classifier.[%parent.id]
           label: 'Settings.'
 
 # Classifier plugin base settings.

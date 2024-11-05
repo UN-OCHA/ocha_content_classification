@@ -67,7 +67,7 @@ class ClassificationWorkflowEditForm extends EntityForm {
    */
   protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $entity */
-    $entity->set('label', $form_state->getValue(['label'], $entity->id()));
+    $entity->setLabel($form_state->getValue(['label'], $entity->id()));
     $entity->setAttemptsLimit((int) $form_state->getValue(['limit'], 1));
   }
 

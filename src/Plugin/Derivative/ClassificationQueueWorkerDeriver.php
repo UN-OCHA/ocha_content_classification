@@ -47,7 +47,7 @@ class ClassificationWorkflowQueueWorkerDeriver extends DeriverBase implements Co
 
     // Get the enabled workflows.
     $workflows = $this->entityTypeManager
-      ->getStorage('ocha_content_classification_workflow')
+      ->getStorage('ocha_classification_workflow')
       ->loadByProperties([
         'status' => 1,
       ]);

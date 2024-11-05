@@ -1,50 +1,50 @@
-entity.classification_workflow.collection:
+entity.ocha_classification_workflow.collection:
   path: '/admin/config/ocha-content-classification/classification-workflows'
   defaults:
-    _entity_list: 'classification_workflow'
+    _entity_list: 'ocha_classification_workflow'
     _title: 'Classification Workflows'
   requirements:
-    _permission: 'view ocha content classification workflows'
+    _permission: 'administer ocha content classification workflows'
 
-entity.classification_workflow.add_form:
+entity.ocha_classification_workflow.add_form:
   path: '/admin/config/ocha-content-classification/classification-workflows/add'
   defaults:
-    _entity_form: 'classification_workflow.add'
+    _entity_form: 'ocha_classification_workflow.add'
     _title: 'Add Classification Workflow'
   requirements:
-    _permission: 'create ocha content classification workflows'
+    _permission: 'administer ocha content classification workflows'
 
-entity.classification_workflow.edit_form:
-  path: '/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/edit'
+entity.ocha_classification_workflow.edit_form:
+  path: '/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/edit'
   defaults:
-    _entity_form: 'classification_workflow.edit'
+    _entity_form: 'ocha_classification_workflow.edit'
     _title: 'Edit Classification Workflow'
   requirements:
-    _permission: 'edit ocha content classification workflows'
+    _permission: 'administer ocha content classification workflows'
 
-entity.classification_workflow.fields_form:
-  path: '/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/configure-fields'
+entity.ocha_classification_workflow.fields_form:
+  path: '/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/configure-fields'
   defaults:
-    _entity_form: 'classification_workflow.fields'
+    _entity_form: 'ocha_classification_workflow.fields'
     _title: 'Configure Classification Workflow Fields'
   requirements:
-    _permission: 'edit ocha content classification workflows'
+    _permission: 'administer ocha content classification workflows'
 
-entity.classification_workflow.classifier_form:
-  path: '/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/configure-classifier'
+entity.ocha_classification_workflow.classifier_form:
+  path: '/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/configure-classifier'
   defaults:
-    _entity_form: 'classification_workflow.classifier'
+    _entity_form: 'ocha_classification_workflow.classifier'
     _title: 'Configure Classification Workflow Classifier'
   requirements:
-    _permission: 'edit ocha content classification workflows'
+    _permission: 'administer ocha content classification workflows'
 
-entity.classification_workflow.delete_form:
-  path: '/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/delete'
+entity.ocha_classification_workflow.delete_form:
+  path: '/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/delete'
   defaults:
-    _entity_form: 'classification_workflow.delete'
+    _entity_form: 'ocha_classification_workflow.delete'
     _title: 'Delete Classification Workflow'
   requirements:
-    _permission: 'delete ocha content classification workflows'
+    _permission: 'administer ocha content classification workflows'
 
 route_callbacks:
   - '\Drupal\ocha_content_classification\Routing\OchaContentClassificationRoutes::routes'

@@ -7,6 +7,7 @@ namespace Drupal\ocha_content_classification\Plugin;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
+use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
 
 /**
  * Plugin manager for the classifier plugins.
@@ -25,8 +26,8 @@ class ClassifierPluginManager extends DefaultPluginManager implements Classifier
       'Plugin/OchaContentClassifier',
       $namespaces,
       $module_handler,
-      'Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface',
-      'Drupal\ocha_content_classification\Attribute\OchaContentClassifier'
+      ClassifierPluginInterface::class,
+      OchaContentClassifier::class
     );
 
     $this->setCacheBackend($cache_backend, 'ocha_content_classification_classifier_plugins');

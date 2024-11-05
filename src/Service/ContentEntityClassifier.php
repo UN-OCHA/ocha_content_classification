@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Drupal\ocha_content_classification\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
-use Drupal\Core\Queue\QueueFactoryInterface;
+use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
 use Psr\Log\LoggerInterface;
@@ -53,7 +54,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    *   The current user.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   The entity type manager.
-   * @param \Drupal\Core\Queue\QueueFactoryInterface $queueFactory
+   * @param \Drupal\Core\Queue\QueueFactory $queueFactory
    *   The queue factory.
    */
   public function __construct(
@@ -61,7 +62,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     protected LoggerChannelFactoryInterface $loggerFactory,
     protected AccountProxyInterface $currentUser,
     protected EntityTypeManagerInterface $entityTypeManager,
-    protected QueueFactoryInterface $queueFactory,
+    protected QueueFactory $queueFactory,
   ) {}
 
   /**
@@ -85,7 +86,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
 
     if (!isset($this->workflows[$entity_type_id][$bundle])) {
       $workflows = $this->entityTypeManager
-        ->getStorage('ocha_content_classification_workflow')
+        ->getStorage('ocha_classification_workflow')
         ->loadByProperties([
           'target.entity_type_id' => $entity_type_id,
           'target.bundle' => $bundle,
@@ -140,7 +141,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     ]);
 
     // Get the queue corresponding to the worflow ('base_id:derivative_id').
-    $queue_name = 'ocha_content_classification_workflow:' . $workflow->id();
+    $queue_name = 'ocha_classification_workflow:' . $workflow->id();
 
     $item = [
       'entity_type_id' => $entity->getEntityTypeId(),
@@ -274,8 +275,13 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    * {@inheritdoc}
    */
   public function alterForm(array &$form, FormStateInterface $form_state, string $form_id): void {
+    $form_object = $form_state?->getFormObject();
+    if (!($form_object instanceof ContentEntityFormInterface)) {
+      return;
+    }
+
     // Skip if this is not a form for a content entity.
-    $entity = $form_state->getFormObject()?->getEntity();
+    $entity = $form_object?->getEntity();
     if (empty($entity) || !($entity instanceof ContentEntityInterface)) {
       return;
     }

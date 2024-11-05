@@ -73,8 +73,8 @@ class ClassificationWorkflowFieldsForm extends EntityForm {
     $form['analyzable']['fields'] = [
       '#type' => 'table',
       '#header' => [
-        $this->t('Enabled'),
-        $this->t('Field'),
+        ['data' => $this->t('Enabled'), 'style' => 'width: 5%'],
+        ['data' => $this->t('Field'), 'style' => 'width: 95%'],
       ],
     ];
 
@@ -97,16 +97,16 @@ class ClassificationWorkflowFieldsForm extends EntityForm {
       '#title' => $this->t('Classifiable Content'),
       '#open' => TRUE,
       '#tree' => TRUE,
-      '#description' => $this->t('List of fields that can be automatically classified. Placeholders can be used in the prompt and will be replaced with the list of terms. The number of terms to retrieve is determined by the min and max values.'),
+      '#description' => $this->t('List of fields that can be automatically classified. Placeholders can be used in the prompt and will be replaced with the list of terms. The number of terms to retrieve is determined by the min and max values. A max value of -1 means no upper limit.'),
     ];
 
     $form['classifiable']['fields'] = [
       '#type' => 'table',
       '#header' => [
-        $this->t('Enabled'),
-        $this->t('Field'),
-        $this->t('Min'),
-        $this->t('Max'),
+        ['data' => $this->t('Enabled'), 'style' => 'width: 5%'],
+        ['data' => $this->t('Field'), 'style' => 'width: 65%'],
+        ['data' => $this->t('Min'), 'style' => 'width: 15%'],
+        ['data' => $this->t('Max'), 'style' => 'width: 15%'],
       ],
     ];
 
@@ -124,15 +124,15 @@ class ClassificationWorkflowFieldsForm extends EntityForm {
           '#type' => 'number',
           '#title' => $this->t('Min'),
           '#title_display' => 'invisible',
-          '#default_value' => $workflow->getClassifiableFieldMin($field_name),
+          '#default_value' => $workflow->getClassifiableFieldMin($field_name) ?: $field_info['min'],
           '#min' => 0,
         ],
         'max' => [
           '#type' => 'number',
           '#title' => $this->t('Max'),
           '#title_display' => 'invisible',
-          '#default_value' => $workflow->getClassifiableFieldMax($field_name),
-          '#min' => 1,
+          '#default_value' => $workflow->getClassifiableFieldMax($field_name) ?: $field_info['max'],
+          '#min' => -1,
         ],
       ];
     }
@@ -251,6 +251,8 @@ class ClassificationWorkflowFieldsForm extends EntityForm {
           $term_fields[$field_name] = [
             'label' => $field->getLabel(),
             'vocabulary' => $vocabulary,
+            'min' => $field->isRequired() ? 1 : 0,
+            'max' => $field->getFieldStorageDefinition()->getCardinality() ?? -1,
           ];
         }
       }

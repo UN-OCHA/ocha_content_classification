@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\ocha_content_classification\Routing;
 
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
  * Provides dynamic routes for OCHA Content Classification.
  */
-final class OchaContentClassificationRoutes {
+final class OchaContentClassificationRoutes implements ContainerInjectionInterface {
 
   /**
    * Constructs a new OchaContentClassificationRoutes object.
@@ -22,6 +24,15 @@ final class OchaContentClassificationRoutes {
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
   ) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('entity_type.manager')
+    );
+  }
 
   /**
    * Returns a collection of routes for content classification.
@@ -47,7 +58,7 @@ final class OchaContentClassificationRoutes {
     // Get the list of enabled classification workflows.
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface[] $workflows */
     $workflows = $this->entityTypeManager
-      ->getStorage('ocha_content_classification_workflow')
+      ->getStorage('ocha_classification_workflow')
       ->loadByProperties([
         'status' => 1,
       ]);

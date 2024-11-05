@@ -7,7 +7,7 @@ namespace Drupal\ocha_content_classification\Entity;
 use Drupal\Core\Config\Entity\ConfigEntityStorage;
 
 /**
- * Storage handler for classification_workflow entities.
+ * Storage handler for ocha_classification_workflow entities.
  */
 class ClassificationWorkflowStorage extends ConfigEntityStorage implements ClassificationWorkflowStorageInterface {
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ocha_content_classification\Form;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -16,7 +17,7 @@ class ClassificationWorkflowDeleteForm extends EntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getQuestion(): string {
+  public function getQuestion(): string|MarkupInterface {
     return $this->t('Are you sure you want to delete the classification workflow %name?', [
       '%name' => $this->entity->label(),
     ]);
@@ -26,13 +27,13 @@ class ClassificationWorkflowDeleteForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getCancelUrl(): Url {
-    return new Url('entity.classification_workflow.collection');
+    return new Url('entity.ocha_classification_workflow.collection');
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getConfirmText(): string {
+  public function getConfirmText(): string|MarkupInterface {
     return $this->t('Delete');
   }
 

@@ -8,7 +8,6 @@ use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
-use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
 use Drupal\Core\Plugin\PluginFormInterface;
@@ -41,8 +40,6 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
    *   The config factory service.
    * @param \Drupal\Core\Logger\LoggerChannelFactoryInterface $loggerFactory
    *   The logger factory service.
-   * @param \Drupal\Core\Messenger\MessengerInterface $messenger
-   *   The messenger service.
    */
   public function __construct(
     array $configuration,
@@ -50,7 +47,6 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
     $plugin_definition,
     protected ConfigFactoryInterface $configFactory,
     protected LoggerChannelFactoryInterface $loggerFactory,
-    protected MessengerInterface $messenger,
   ) {
     parent::__construct(
       $configuration,
@@ -69,7 +65,6 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
       $plugin_definition,
       $container->get('config.factory'),
       $container->get('logger.factory'),
-      $container->get('messenger'),
     );
   }
 

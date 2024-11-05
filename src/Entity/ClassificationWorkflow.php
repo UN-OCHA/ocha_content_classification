@@ -18,7 +18,7 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  * Defines the Classification Workflow configuration entity.
  *
  * @ConfigEntityType(
- *   id = "ocha_content_classification_workflow",
+ *   id = "ocha_classification_workflow",
  *   label = @Translation("Classification Workflow"),
  *   handlers = {
  *     "list_builder" = "Drupal\ocha_content_classification\ClassificationWorkflowListBuilder",
@@ -33,7 +33,8 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  *       "html" = "Drupal\Core\Entity\Routing\AdminHtmlRouteProvider",
  *     },
  *   },
- *   config_prefix = "classification_workflow",
+ *   config_prefix = "ocha_classification_workflow",
+ *   admin_permission = "administer ocha content classification workflows",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label",
@@ -41,12 +42,12 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  *     "uuid" = "uuid"
  *   },
  *   links = {
- *     "canonical" = "/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}",
+ *     "canonical" = "/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}",
  *     "add-form" = "/admin/config/ocha-content-classification/classification-workflows/add",
- *     "edit-form" = "/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/edit",
- *     "fields-form" = "/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/configure-fields",
- *     "classifier-form" = "/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/configure-classifier",
- *     "delete-form" = "/admin/config/ocha-content-classification/classification-workflows/{classification_workflow}/delete",
+ *     "edit-form" = "/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/edit",
+ *     "fields-form" = "/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/configure-fields",
+ *     "classifier-form" = "/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/configure-classifier",
+ *     "delete-form" = "/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}/delete",
  *     "collection" = "/admin/config/ocha-content-classification/classification-workflows"
  *   },
  *   config_export = {
@@ -54,18 +55,9 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  *     "label",
  *     "status",
  *     "limit",
- *     "target" = {
- *        "entity_type_id",
- *        "bundle"
- *     },
- *     "fields" = {
- *        "analyzable",
- *        "classifiable"
- *     },
- *     "classifer" = {
- *        "id",
- *        "settings"
- *     }
+ *     "target",
+ *     "fields",
+ *     "classifier"
  *   }
  * )
  */
@@ -76,42 +68,42 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    *
    * @var string
    */
-  protected string $id;
+  protected ?string $id;
 
   /**
    * The Classification Workflow label.
    *
    * @var string
    */
-  protected string $label;
+  protected ?string $label;
 
   /**
    * Maximum number of attempts before failure.
    *
    * @var int
    */
-  protected int $limit;
+  protected ?int $limit;
 
   /**
    * The workflow target settings.
    *
    * @var array
    */
-  protected array $target;
+  protected ?array $target;
 
   /**
    * The workflow fields settings.
    *
    * @var array
    */
-  protected array $fields;
+  protected ?array $fields;
 
   /**
    * The workflow classifier settings.
    *
    * @var array
    */
-  protected array $classifier;
+  protected ?array $classifier;
 
   /**
    * The classifier plugin.
@@ -144,15 +136,31 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function getAttemptsLimit(): int {
-    return $this->limit ?? 0;
+  public function setId(?string $id): self {
+    $this->id = $id;
+    return $this;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setAttemptsLimit(int $limit): self {
-    $this->limit = $limit;
+  public function setLabel(?string $label): self {
+    $this->label = $label;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getAttemptsLimit(): int {
+    return $this->limit ?? 1;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setAttemptsLimit(?int $limit): self {
+    $this->limit = isset($limit) ? max(1, $limit) : NULL;
     return $this;
   }
 
@@ -166,7 +174,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function setTargetEntityTypeId(string $entity_type_id): self {
+  public function setTargetEntityTypeId(?string $entity_type_id): self {
     $this->target['entity_type_id'] = $entity_type_id;
     return $this;
   }
@@ -181,7 +189,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function setTargetBundle(string $bundle): self {
+  public function setTargetBundle(?string $bundle): self {
     $this->target['bundle'] = $bundle;
     return $this;
   }
@@ -196,7 +204,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function setClassifierPluginId(string $plugin_id): self {
+  public function setClassifierPluginId(?string $plugin_id): self {
     // Reset the classifier plugin since it may change.
     unset($this->classifierPlugin);
     $this->classifier['id'] = $plugin_id;
@@ -213,7 +221,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function setClassifierPluginSettings(array $settings): self {
+  public function setClassifierPluginSettings(?array $settings): self {
     // Reset the classifier plugin since it may change.
     unset($this->classifierPlugin);
     $this->classifier['settings'] = $settings;
@@ -296,7 +304,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    * {@inheritdoc}
    */
   public function setClassifiableFieldMax(string $field_name, int $max): self {
-    $this->fields['classifiable'][$field_name]['max'] = max(1, $max);
+    $this->fields['classifiable'][$field_name]['max'] = max(-1, $max);
     return $this;
   }
 
@@ -408,7 +416,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     string $message,
     string $status,
     bool $new = FALSE,
-  ) {
+  ): string {
     // Extract necessary information from the entity.
     $entity_type_id = $entity->getEntityTypeId();
     $entity_bundle = $entity->bundle();

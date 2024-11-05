@@ -91,6 +91,14 @@ class ClassificationWorkflowAddForm extends EntityForm {
 
   /**
    * Ajax callback to update bundle options.
+   *
+   * @param array $form
+   *   The form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return array
+   *   The target bundle form element.
    */
   public function updateBundleOptions(array &$form, FormStateInterface $form_state): array {
     return $form['target']['bundle'];
@@ -102,18 +110,20 @@ class ClassificationWorkflowAddForm extends EntityForm {
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     parent::validateForm($form, $form_state);
 
-    $target_entity_type_id = $form_state->getValue(['target']['entity_type_id']);
-    $target_bundle = $form_state->getValue(['target']['bundle']);
+    $target_entity_type_id = $form_state->getValue(['target', 'entity_type_id']);
+    $target_bundle = $form_state->getValue(['target', 'bundle']);
 
     // Check if a workflow already exists for this entity type and bundle.
-    $existing = $this->entityTypeManager->getStorage('classification_workflow')
-      ->loadByProperties([
-        'target.entity_type_id' => $target_entity_type_id,
-        'target.bundle' => $target_bundle,
-      ]);
+    if (!empty($target_entity_type_id) && !empty($target_bundle)) {
+      $existing = $this->entityTypeManager->getStorage('ocha_classification_workflow')
+        ->loadByProperties([
+          'target.entity_type_id' => $target_entity_type_id,
+          'target.bundle' => $target_bundle,
+        ]);
 
-    if (!empty($existing)) {
-      $form_state->setError($form['target'], $this->t('A classification workflow already exists for this entity type and bundle.'));
+      if (!empty($existing)) {
+        $form_state->setError($form['target'], $this->t('A classification workflow already exists for this entity type and bundle.'));
+      }
     }
   }
 
@@ -140,15 +150,15 @@ class ClassificationWorkflowAddForm extends EntityForm {
    * {@inheritdoc}
    */
   protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
-    $target_entity_type_id = $form_state->getValue(['target']['entity_type_id']);
-    $target_bundle = $form_state->getValue(['target']['bundle']);
-
-    $id = $this->generateWorkflowId($target_entity_type_id, $target_bundle);
+    $target_entity_type_id = $form_state->getValue(['target', 'entity_type_id']);
+    $target_bundle = $form_state->getValue(['target', 'bundle']);
     $label = $form_state->getValue(['label']);
+    $id = $this->generateWorkflowId($target_entity_type_id, $target_bundle);
 
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $entity */
-    $entity->set('id', $id);
-    $entity->set('label', $label);
+    $entity->setId($id);
+    $entity->setLabel($label);
+    $entity->setStatus(FALSE);
     $entity->setTargetEntityTypeId($target_entity_type_id);
     $entity->setTargetBundle($target_bundle);
   }
@@ -192,16 +202,19 @@ class ClassificationWorkflowAddForm extends EntityForm {
   /**
    * Generate a unique workflow ID based on entity type and bundle.
    *
-   * @param string $target_entity_type_id
+   * @param ?string $target_entity_type_id
    *   The target entity type ID.
-   * @param string $target_bundle
+   * @param ?string $target_bundle
    *   The target bundle.
    *
-   * @return string
-   *   A unique workflow ID.
+   * @return ?string
+   *   A unique workflow ID or NULL if the entity type id or bundle are missing.
    */
-  protected function generateWorkflowId(string $target_entity_type_id, string $target_bundle): string {
-    return 'ocha_content_classification_' . $target_entity_type_id . '_' . $target_bundle . '_workflow';
+  protected function generateWorkflowId(?string $target_entity_type_id, ?string $target_bundle): ?string {
+    if (!empty($target_entity_type_id) && !empty($target_bundle)) {
+      return $target_entity_type_id . '_' . $target_bundle;
+    }
+    return NULL;
   }
 
 }

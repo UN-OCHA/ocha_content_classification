@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ocha_content_classification\Form;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -46,7 +47,7 @@ class ClassificationRequeueForm extends EntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getQuestion(): string {
+  public function getQuestion(): string|MarkupInterface {
     return $this->t('Are you sure you want to requeue this entity for classification?');
   }
 
@@ -61,7 +62,7 @@ class ClassificationRequeueForm extends EntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getConfirmText(): string {
+  public function getConfirmText(): string|MarkupInterface {
     return $this->t('Requeue for classification');
   }
 
