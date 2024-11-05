@@ -1,0 +1,173 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\ocha_content_classification\Plugin;
+
+use Drupal\Component\Plugin\ConfigurableInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Plugin\PluginBase;
+use Drupal\Core\Plugin\PluginFormInterface;
+use Drupal\ocha_content_classification\Exception\InvalidConfigurationException;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+
+/**
+ * Base classifier plugin class.
+ */
+abstract class ClassifierPluginBase extends PluginBase implements ClassifierPluginInterface, ContainerFactoryPluginInterface, PluginFormInterface, ConfigurableInterface {
+
+  /**
+   * The logger service.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected LoggerInterface $logger;
+
+  /**
+   * Constructs a \Drupal\Component\Plugin\PluginBase object.
+   *
+   * @param array $configuration
+   *   A configuration array containing information about the plugin instance.
+   * @param string $plugin_id
+   *   The plugin_id for the plugin instance.
+   * @param mixed $plugin_definition
+   *   The plugin implementation definition.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory service.
+   * @param \Drupal\Core\Logger\LoggerChannelFactoryInterface $loggerFactory
+   *   The logger factory service.
+   * @param \Drupal\Core\Messenger\MessengerInterface $messenger
+   *   The messenger service.
+   */
+  public function __construct(
+    array $configuration,
+    $plugin_id,
+    $plugin_definition,
+    protected ConfigFactoryInterface $configFactory,
+    protected LoggerChannelFactoryInterface $loggerFactory,
+    protected MessengerInterface $messenger,
+  ) {
+    parent::__construct(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+    );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $container->get('config.factory'),
+      $container->get('logger.factory'),
+      $container->get('messenger'),
+    );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPluginLabel(): string {
+    $definition = $this->getPluginDefinition();
+    return (string) ($definition['label'] ?? $this->getPluginId());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPluginType(): string {
+    return 'classifier';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getLogger(): LoggerInterface {
+    if (!isset($this->logger)) {
+      $this->logger = $this->loggerFactory->get(implode('.', [
+        'ocha_content_classification',
+        $this->getPluginType(),
+        $this->getPluginId(),
+      ]));
+    }
+    return $this->logger;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPluginSetting(string $key, mixed $default = NULL, bool $throw_if_null = TRUE): mixed {
+    if (empty($key)) {
+      return NULL;
+    }
+
+    $parts = explode('.', $key);
+    if (count($parts) === 1) {
+      $setting = $this->configuration[$key] ?? $default;
+    }
+    else {
+      $value = NestedArray::getValue($this->configuration ?? [], $parts, $key_exists);
+      $setting = $key_exists ? $value : $default;
+    }
+
+    if (is_null($setting) && $throw_if_null) {
+      throw new InvalidConfigurationException(strtr('Missing @key for @type plugin @id', [
+        '@key' => $key,
+        '@type' => $this->getPluginType(),
+        '@id' => $this->getPluginId(),
+      ]));
+    }
+    return $setting;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getConfiguration(): array {
+    return $this->configuration ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setConfiguration(array $configuration): void {
+    $this->configuration = $configuration;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state): array {
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state): void {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state): void {
+    $this->setConfiguration($form_state->getValues());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function defaultConfiguration(): array {
+    return [];
+  }
+
+}

@@ -1,0 +1,129 @@
+ocha_content_classification.classification_workflow.*:
+  type: config_entity
+  label: 'Classification Workflow.'
+  mapping:
+    id:
+      type: string
+      label: 'ID.'
+    label:
+      type: label
+      label: 'Label.'
+    limit:
+      type: integer
+      label: 'Maximum number of classification attempts before failure.'
+    target:
+      type: mapping
+      label: 'Entity type and bundle this Workflow applies to.'
+      mapping:
+        entity_type_id:
+          type: string
+          label: 'Entity type ID.'
+        bundle:
+          type: string
+          label: 'Entity bundle.'
+    fields:
+      type: mapping
+      label: 'Analyzable and classifiable fields.'
+      mapping:
+        analyzable:
+          type: sequence
+          label: 'Analyzable fields.'
+          sequence:
+            type: mapping
+            label: 'List of analyzable fields.'
+            mapping:
+              enabled:
+                type: boolean
+                label: 'Whether the field is enabled for content analysis or not.'
+        classifiable:
+          type: sequence
+          label: 'Classifiable fields.'
+          sequence:
+            type: mapping
+            label: 'List of classifiable fields.'
+            mapping:
+              enabled:
+                type: boolean
+                label: 'Whether the field is enabled for content classification or not.'
+              min:
+                type: integer
+                label: 'Minimum number of terms to include in the classification results.'
+              max:
+                type: integer
+                label: 'Maximum number of terms to include in the classification results.'
+    classifier:
+      type: mapping
+      label: 'Classifier.'
+      mapping:
+        id:
+          type: string
+          label: 'Plugin ID.'
+        settings:
+          type: ocha_content_classification.plugin.classifier
+          label: 'Settings.'
+
+# Classifier plugin base settings.
+ocha_content_classification.plugin.classifier:
+  type: mapping
+  label: 'Classifier plugin base settings.'
+  mapping:
+
+# Inference classifier plugin settings.
+ocha_content_classification.plugin.classifier.inference:
+  type: ocha_content_classification.plugin.classifier
+  label: 'Inference classifier plugin base settings.'
+  mapping:
+    analyzable:
+      type: mapping
+      label: 'Analyzable Content.'
+      mapping:
+        fields:
+          type: sequence
+          label: 'Analyzable fields.'
+          sequence:
+            type: mapping
+            mapping:
+              placeholder:
+                type: string
+                label: 'Placeholder to use in the prompt.'
+              processor:
+                type: string
+                label: 'Processor.'
+    classifiable:
+      type: mapping
+      label: 'Classifiable Content.'
+      mapping:
+        fields:
+          type: sequence
+          label: 'Classifiable fields.'
+          sequence:
+            type: mapping
+            mapping:
+              placeholder:
+                type: string
+                label: 'Placeholder to use in the prompt.'
+              terms:
+                type: sequence
+                label: 'Term overrides.'
+                sequence:
+                  type: string
+                  label: 'Term description.'
+    inference:
+      type: mapping
+      label: 'Inference settings.'
+      mapping:
+        plugin_id:
+          type: string
+          label: 'OCHA AI completion plugin ID.'
+        temperature:
+          type: float
+          label: 'Temperature.'
+        top_p:
+          type: float
+          label: 'Nucleus sampling (top_p).'
+        max_tokens:
+          type: integer
+          label: 'Max tokens.'
+        prompt:
+          type: text
+          label: 'Prompt.'

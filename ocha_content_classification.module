@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * OCHA Content Classification module file.
+ */
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+
+/**
+ * Implements hook_entity_presave().
+ */
+function ocha_content_classification_presave(EntityInterface $entity): void {
+  \Drupal::service('ocha_content_classification.content_entity_classifier')
+    ->entityBeforeSave($entity);
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function ocha_content_classification_entity_insert(EntityInterface $entity): void {
+  \Drupal::service('ocha_content_classification.content_entity_classifier')
+    ->entityAfterSave($entity);
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function ocha_content_classification_entity_update(EntityInterface $entity): void {
+  \Drupal::service('ocha_content_classification.content_entity_classifier')
+    ->entityAfterSave($entity);
+}
+
+/**
+ * Implements hook_entity_delete().
+ */
+function ocha_content_classification_entity_delete(EntityInterface $entity): void {
+  \Drupal::service('ocha_content_classification.content_entity_classifier')
+    ->entityDelete($entity);
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function ocha_content_classification_form_alter(array &$form, FormStateInterface $form_state, $form_id): void {
+  \Drupal::service('ocha_content_classification.content_entity_classifier')
+    ->alterForm($form, $form_state, $form_id);
+}

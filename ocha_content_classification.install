@@ -1,0 +1,73 @@
+<?php
+
+/**
+ * @file
+ * Install file for the ocha_content_classification module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function ocha_content_classification_schema() {
+  $schema['ocha_content_classification_progress'] = [
+    'description' => 'Stores the progress of content classification for entities.',
+    'fields' => [
+      'entity_type_id' => [
+        'type' => 'varchar_ascii',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => 'The entity type of the classified entity.',
+      ],
+      'entity_bundle' => [
+        'type' => 'varchar_ascii',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => 'The bundle of the classified entity.',
+      ],
+      'entity_id' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The ID of the classified entity.',
+      ],
+      'status' => [
+        'type' => 'varchar_ascii',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => 'The status of the classification (queued, processed or failed).',
+      ],
+      'attempts' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The number of classification attempts.',
+      ],
+      'created' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The Unix timestamp when the entity was first queued for classification.',
+      ],
+      'changed' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The Unix timestamp of the last update to this record.',
+      ],
+      'message' => [
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'The message for the last update of this record (e.g., error message).',
+      ],
+      'classifier' => [
+        'type' => 'varchar_ascii',
+        'length' => 128,
+        'description' => 'The ID of the classifier plugin used for classification.',
+      ],
+    ],
+    'primary key' => ['entity_type_id', 'entity_bundle', 'entity_id'],
+    'indexes' => [
+      'status' => ['status'],
+    ],
+  ];
+
+  return $schema;
+}

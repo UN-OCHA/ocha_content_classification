@@ -1,0 +1,28 @@
+name: Drupal coding standards
+
+on: [pull_request]
+
+jobs:
+  phpcs-drupal:
+    name: Drupal PHP ${{ matrix.php-versions }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-versions: ['8.3']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP, with composer and extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          coverage: xdebug
+
+      - name: Install dev dependencies
+        run: composer require --dev
+
+      - name: Check coding standards
+        run: vendor/bin/phpcs

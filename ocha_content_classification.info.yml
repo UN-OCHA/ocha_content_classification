@@ -1,0 +1,7 @@
+type: module
+name: OCHA Content Classification
+description: 'Classify entity content automatically.'
+package: ocha
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:ocha_ai

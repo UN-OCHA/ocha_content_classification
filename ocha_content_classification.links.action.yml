@@ -1,0 +1,5 @@
+entity.classification_workflow.add_form:
+  title: 'Add Classification Workflow'
+  route_name: entity.classification_workflow.add_form
+  appears_on:
+    - entity.classification_workflow.collection

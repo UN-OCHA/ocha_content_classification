@@ -1,0 +1,25 @@
+services:
+  plugin.manager.ocha_content_classification.classifier:
+    class: Drupal\ocha_content_classification\Plugin\ClassifierPluginManager
+    parent: default_plugin_manager
+
+  entity.manager.classification_workflow:
+    class: Drupal\ocha_content_classification\Entity\ClassificationWorkflowStorage
+    arguments: ['@entity_type.manager']
+    tags:
+      - { name: backend_overridable }
+
+  ocha_content_classification.content_entity_classifier:
+    class: Drupal\ocha_content_classification\Service\ContentEntityClassifier
+    arguments:
+      - '@config.factory'
+      - '@logger.factory'
+      - '@current_user'
+      - '@entity_type.manager'
+      - '@queue'
+
+  ocha_content_classification.classification_requeue_access_check:
+    class: Drupal\ocha_content_classification\Access\ClassificationRequeueAccessCheck
+    arguments: ['@ocha_content_classification.content_entity_classifier']
+    tags:
+      - { name: access_check, applies_to: _classification_requeue_access_check }
