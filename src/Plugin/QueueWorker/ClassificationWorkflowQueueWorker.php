@@ -2,13 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Drupal\ocha_content_classification\Plugin;
+namespace Drupal\ocha_content_classification\Plugin\QueueWorker;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\RevisionLogInterface;
+use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
 use Drupal\Core\Queue\SuspendQueueException;
+use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
 use Drupal\ocha_content_classification\Exception\AlreadyProcessedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
 use Drupal\ocha_content_classification\Exception\UnexpectedValueException;
@@ -27,7 +31,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   deriver = "Drupal\ocha_content_classification\Plugin\Derivative\ClassificationWorkflowQueueWorkerDeriver"
  * )
  */
-class ClassificationWorkflowQueueWorker extends QueueWorkerBase {
+class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {
 
   /**
    * The logger service.
@@ -113,12 +117,9 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase {
         ]);
 
         // Mark the entity as processed.
-        $this->setPermanentStatus($entity, $workflow, $message, 'processed');
+        $this->updateClassificationStatus($entity, $workflow, $message, 'processed');
 
-        $this->getLogger()->info('@bundle_label @entity_id updated with data from AI.', [
-          '@bundle_label' => $bundle_label,
-          '@entity_id' => $entity->id(),
-        ]);
+        $this->getLogger()->info($message);
       }
     }
     // Skip and remove the entity from the queue if unsupported.
@@ -232,29 +233,31 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase {
     string $message,
     string $status,
   ): void {
-    // Update the classification progress record and create a revision if the
-    // the classification status changed.
+    // Update the classification progress record and save the changes to the
+    // entity if the classification status changed.
     if ($workflow->updateClassificationProgress($entity, $message, $status) !== $status) {
-      $this->createEntityRevision($entity, $message);
+      $this->saveEntity($entity, $message);
     }
   }
 
   /**
-   * Create a new revision for an entity with the given message.
+   * Save an entity with the changes from the classification.
+   *
+   * This will create a new revision if supported.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   Entity.
    * @param string $message
    *   Revision message.
    */
-  protected function createEntityRevision(ContentEntityInterface $entity, string $message): void {
-    if (!($entity instanceof RevisionInterface)) {
-      return;
+  protected function saveEntity(ContentEntityInterface $entity, string $message): void {
+    if ($entity instanceof RevisionableInterface) {
+      $entity->setNewRevision(TRUE);
     }
-
-    $entity->setRevisionCreationTime(time());
-    $entity->setRevisionLogMessage($message);
-    $entity->setNewRevision(TRUE);
+    if ($entity instanceof RevisionLogInterface) {
+      $entity->setRevisionCreationTime(time());
+      $entity->setRevisionLogMessage($message);
+    }
     $entity->save();
   }
 

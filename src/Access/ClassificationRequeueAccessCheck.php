@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\ocha_content_classification\Access;
 
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -50,11 +51,14 @@ class ClassificationRequeueAccessCheck implements AccessInterface {
     }
 
     $entity = $route_match->getParameter($entity_type_id);
-    if (empty($entity)) {
+    if (empty($entity) || !($entity instanceof ContentEntityInterface)) {
       return AccessResult::forbidden();
     }
 
-    if ($this->contentEntityClassifier->isEntityClassifiable($entity)) {
+    // Check if the entity can be classified. Since this is to show the
+    // requeue operation, we instruct to skip the classification status so
+    // we can force a requeue if the entity is, otherwise, classifiable.
+    if ($this->contentEntityClassifier->isEntityClassifiable($entity, FALSE)) {
       return AccessResult::allowed();
     }
 

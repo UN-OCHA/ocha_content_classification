@@ -263,6 +263,10 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   Entity to classify.
+   * @param bool $check_status
+   *   Whether to check the classification record status or not. This is used
+   *   notably to allow requeueing entities after reverting to a revision where
+   *   the classifiable fields are empty for example.
    *
    * @return bool
    *   TRUE if the entity can be processed.
@@ -276,7 +280,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   If the configuration is invalid (ex: missing settings).
    */
-  public function validateEntity(ContentEntityInterface $entity): bool;
+  public function validateEntity(ContentEntityInterface $entity, bool $check_status = TRUE): bool;
 
   /**
    * Update the classification progress for a given entity.

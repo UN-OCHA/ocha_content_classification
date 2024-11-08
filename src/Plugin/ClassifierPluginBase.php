@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\ocha_content_classification\Plugin;
 
 use Drupal\Component\Plugin\ConfigurableInterface;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
@@ -105,12 +106,14 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
       return NULL;
     }
 
+    $configuration = $this->getConfiguration();
+
     $parts = explode('.', $key);
     if (count($parts) === 1) {
-      $setting = $this->configuration[$key] ?? $default;
+      $setting = $configuration[$key] ?? $default;
     }
     else {
-      $value = NestedArray::getValue($this->configuration ?? [], $parts, $key_exists);
+      $value = NestedArray::getValue($configuration, $parts, $key_exists);
       $setting = $key_exists ? $value : $default;
     }
 

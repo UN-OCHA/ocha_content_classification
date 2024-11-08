@@ -40,6 +40,12 @@ class ClassificationWorkflowEditForm extends EntityForm {
       '#required' => TRUE,
     ];
 
+    $form['status'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enabled'),
+      '#default_value' => $workflow->status(),
+    ];
+
     return $form;
   }
 
@@ -66,9 +72,14 @@ class ClassificationWorkflowEditForm extends EntityForm {
    * {@inheritdoc}
    */
   protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
+    $label = $form_state->getValue(['label'], $entity->id());
+    $limit = $form_state->getValue(['limit'], 1);
+    $status = $form_state->getValue(['status']);
+
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $entity */
-    $entity->setLabel($form_state->getValue(['label'], $entity->id()));
-    $entity->setAttemptsLimit((int) $form_state->getValue(['limit'], 1));
+    $entity->setLabel($label);
+    $entity->setAttemptsLimit((int) $limit);
+    $entity->setStatus(!empty($status));
   }
 
 }

@@ -339,7 +339,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    */
   public function classifyEntity(ContentEntityInterface $entity): bool {
     if ($this->validateEntity($entity)) {
-      return $this->getClassifierPlugin()?->classifyEntity($entity) ?? FALSE;
+      return $this->getClassifierPlugin()?->classifyEntity($entity, $this) ?? FALSE;
     }
     return FALSE;
   }
@@ -347,7 +347,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function validateEntity(ContentEntityInterface $entity): bool {
+  public function validateEntity(ContentEntityInterface $entity, bool $check_status = TRUE): bool {
     if ($entity->getEntityTypeId() !== $this->getTargetEntityTypeId() || $entity->bundle() !== $this->getTargetBundle()) {
       throw new UnsupportedEntityException('Entity type or bundle not supported.');
     }
@@ -358,7 +358,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $attempts = $existing_record['attempts'] ?? 0;
 
     // Skip if the entity is already processed.
-    if ($status === 'processed') {
+    if ($check_status && $status === 'processed') {
       throw new AlreadyProcessedException(strtr('@bundle_label @id already processed.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -366,7 +366,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     }
 
     // Skip if the classification is marked as failure.
-    if ($status === 'failed') {
+    if ($check_status && $status === 'failed') {
       throw new ClassificationFailedException(strtr('Classification failed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -374,7 +374,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     }
 
     // Skip if we reached the maximum number of classification attempts.
-    if ($attempts >= $this->getAttemptsLimit()) {
+    if ($check_status && $attempts >= $this->getAttemptsLimit()) {
       throw new ClassificationFailedException(strtr('Maximum classification attempts reached for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -405,7 +405,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
 
     // Finally validate the classifier.
     // @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
-    return $this->getClassifierPlugin()?->validateEntity($entity) ?? FALSE;
+    return $this->getClassifierPlugin()?->validateEntity($entity, $this) ?? FALSE;
   }
 
   /**

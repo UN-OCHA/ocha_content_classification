@@ -77,10 +77,24 @@ class ClassificationWorkflowClassifierForm extends EntityForm {
     // Load the selected classifier settings.
     $classifier_plugin = $workflow->getClassifierPlugin();
     if (!empty($classifier_plugin)) {
-      $form['classifier']['settings'] += $classifier_plugin->buildConfigurationForm([], $form_state, $workflow);
+      $form['classifier']['settings'] = $classifier_plugin
+        ->buildConfigurationForm($form['classifier']['settings'], $form_state, $workflow);
     }
 
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state): void {
+    /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow */
+    $workflow = $this->entity;
+
+    $classifier_plugin = $workflow->getClassifierPlugin();
+    if (!empty($classifier_plugin)) {
+      $classifier_plugin->validateConfigurationForm($form['classifier']['settings'], $form_state, $workflow);
+    }
   }
 
   /**

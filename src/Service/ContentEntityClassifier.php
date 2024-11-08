@@ -9,12 +9,13 @@ use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\RevisionableInterface;
+use Drupal\Core\Entity\RevisionLogInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
+use Drupal\ocha_content_classification\Helper\EntityHelper;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -68,9 +69,12 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
   /**
    * {@inheritdoc}
    */
-  public function isEntityClassifiable(EntityInterface $entity): bool {
+  public function isEntityClassifiable(EntityInterface $entity, bool $check_status = TRUE): bool {
     $workflow = $this->getWorkflowForEntity($entity);
-    return $this->validateEntityForWorkflow($entity, $workflow);
+    if (empty($workflow)) {
+      return FALSE;
+    }
+    return $this->validateEntityForWorkflow($entity, $workflow, $check_status);
   }
 
   /**
@@ -123,6 +127,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     // cycle of the item in the queue is managed by the queue wroker. It is
     // in charge of keeping items in the queue if they haven't yet been
     // processed properly.
+    // @todo Do we want to update the revision message to indicate the entity
+    // is still being queued for classification for example?
     elseif ($workflow->getClassificationProgress($entity) !== NULL) {
       return FALSE;
     }
@@ -134,10 +140,9 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
 
     $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
 
-    $message = strtr('@bundle_label @entity_id @status for classification', [
+    $message = strtr('@bundle_label @entity_id queued for classification.', [
       '@bundle_label' => $bundle_label,
       '@entity_id' => $entity->id(),
-      '@status' => $requeue ? 'requeued' : 'queued',
     ]);
 
     // Get the queue corresponding to the worflow ('base_id:derivative_id').
@@ -151,7 +156,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
 
     // Queue the entity.
     if (!$this->queueFactory->get($queue_name, TRUE)->createItem($item)) {
-      $this->getLogger()->error('Unable to queue @bundle_label @entity_id', [
+      $this->getLogger()->error('Unable to queue @bundle_label @entity_id.', [
         '@bundle_label' => $bundle_label,
         '@entity_id' => $entity->id(),
       ]);
@@ -162,10 +167,13 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     $workflow->updateClassificationProgress($entity, $message, 'queued', TRUE);
 
     // Add a revision message to the entity.
-    if ($entity instanceof RevisionableInterface) {
-      $message = trim($entity->getRevisionLogMessage() . ' ' . $message);
-      $entity->setNewRevision(TRUE);
-      $entity->setRevisionLogMessage($message);
+    if ($entity instanceof RevisionLogInterface) {
+      // Only add the message if not already in the current revision message.
+      $revision_message = $entity->getRevisionLogMessage() ?? '';
+      if (mb_strpos($revision_message, $message) === FALSE) {
+        $message = trim($revision_message . ' ' . $message);
+        $entity->setRevisionLogMessage($message);
+      }
     }
 
     return TRUE;
@@ -191,7 +199,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    // Skip of the entity is not valid, for example because it has already
+    // Skip if the entity is not valid, for example because it has already
     // been processed or the automated classification failed.
     if (!$this->validateEntityForWorkflow($entity, $workflow)) {
       return;
@@ -309,6 +317,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     }
 
     // Hide classifiable fields since they will be populated automatically.
+    // @todo show a message indicating the automatic tagging instead of
+    // fully hiding them.
     foreach ($workflow->getEnabledClassifiableFields() as $field_name => $field_info) {
       if ($entity->hasField($field_name) && $entity->get($field_name)->isEmpty()) {
         $form[$field_name]['#access'] = FALSE;
@@ -324,16 +334,20 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    *   Entity to validate.
    * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
    *   Classification workflow.
+   * @param bool $check_status
+   *   Whether to check the classification record status or not. This is used
+   *   notably to allow requeueing entities after reverting to a revision where
+   *   the classifiable fields are empty for example.
    *
    * @return bool
    *   TRUE if the entity cab be processed by the workflow.
    */
-  protected function validateEntityForWorkflow(EntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
+  protected function validateEntityForWorkflow(EntityInterface $entity, ClassificationWorkflowInterface $workflow, bool $check_status = TRUE): bool {
     if (!($entity instanceof ContentEntityInterface)) {
       return FALSE;
     }
     try {
-      return $workflow->validateEntity($entity);
+      return $workflow->validateEntity($entity, $check_status);
     }
     catch (\Exception $exception) {
       return FALSE;

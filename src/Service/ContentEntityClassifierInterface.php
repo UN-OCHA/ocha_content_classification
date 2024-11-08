@@ -16,15 +16,20 @@ interface ContentEntityClassifierInterface {
   /**
    * Check if an entity is classifiable.
    *
-   * This checks is there a valid classification workflow for the entity.
+   * This checks is there a valid classification workflow for the entity and
+   * then if the entity can be classified (not already processed etc.).
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   Entity to classify.
+   * @param bool $check_status
+   *   Whether to check the classification record status or not. This is used
+   *   notably to allow requeueing entities after reverting to a revision where
+   *   the classifiable fields are empty for example.
    *
    * @return bool
    *   TRUE if the entity is classifiable.
    */
-  public function isEntityClassifiable(EntityInterface $entity): bool;
+  public function isEntityClassifiable(EntityInterface $entity, bool $check_status = TRUE): bool;
 
   /**
    * Get the enabled classification workflow that can process the entity.

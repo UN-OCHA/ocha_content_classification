@@ -10,22 +10,6 @@ administer ocha content classification workflows:
   title: 'Administer content classification workflows'
   description: 'Allow users to administer classification workflows.'
 
-view ocha content classification workflows:
-  title: 'View OCHA Content Classification Workflows'
-  description: 'Allow users to view the list of classification workflows.'
-
-create ocha content classification workflows:
-  title: 'Create OCHA Content Classification Workflows'
-  description: 'Allow users to create new classification workflows.'
-
-edit ocha content classification workflows:
-  title: 'Edit OCHA Content Classification Workflows'
-  description: 'Allow users to edit existing classification workflows.'
-
-delete ocha content classification workflows:
-  title: 'Delete OCHA Content Classification Workflows'
-  description: 'Allow users to delete existing classification workflows.'
-
 requeue entity for ocha content classification:
   title: 'Requeue Entity for OCHA Content Classification'
   description: 'Allow users to requeue entities for content classification.'

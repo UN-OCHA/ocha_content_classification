@@ -3,6 +3,7 @@
 namespace Drupal\ocha_content_classification\Plugin;
 
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -58,11 +59,13 @@ interface ClassifierPluginInterface {
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity to classify.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification workflow.
    *
    * @return bool
    *   TRUE if the classification was successful.
    */
-  public function classifyEntity(ContentEntityInterface $entity): bool;
+  public function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool;
 
   /**
    * Check if an entity can be processed by the classifier.

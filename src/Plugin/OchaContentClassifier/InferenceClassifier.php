@@ -16,6 +16,7 @@ use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
 use Drupal\ocha_content_classification\Exception\ClassifierPluginException;
+use Drupal\ocha_content_classification\Exception\InvalidConfigurationException;
 use Drupal\ocha_content_classification\Exception\UnexpectedValueException;
 use Drupal\ocha_content_classification\Helper\EntityHelper;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginBase;
@@ -121,8 +122,8 @@ class InferenceClassifier extends ClassifierPluginBase {
       '#type' => 'table',
       '#header' => [
         ['data' => $this->t('Field'), 'style' => 'width: 15%'],
-        ['data' => $this->t('Placeholder'), 'style' => 'width: 15%'],
-        ['data' => $this->t('Processor'), 'style' => 'width: 70%'],
+        ['data' => $this->t('Placeholder'), 'style' => 'width: 15%', 'class' => ['required-mark']],
+        ['data' => $this->t('Processor'), 'style' => 'width: 70%', 'class' => ['required-mark']],
       ],
     ];
 
@@ -169,7 +170,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       '#type' => 'table',
       '#header' => [
         ['data' => $this->t('Field'), 'style' => 'width: 15%'],
-        ['data' => $this->t('Placeholder'), 'style' => 'width: 15%'],
+        ['data' => $this->t('Placeholder'), 'style' => 'width: 15%', 'class' => ['required-mark']],
         ['data' => $this->t('Min'), 'style' => 'width: 5%'],
         ['data' => $this->t('Max'), 'style' => 'width: 5%'],
         ['data' => $this->t('Terms'), 'style' => 'width: 60%'],
@@ -192,7 +193,7 @@ class InferenceClassifier extends ClassifierPluginBase {
           '#machine_name' => [
             'exists' => [$this, 'machineNameExists'],
           ],
-          '#required' => FALSE,
+          '#required' => TRUE,
           '#description' => NULL,
         ],
         'min' => [
@@ -310,21 +311,25 @@ class InferenceClassifier extends ClassifierPluginBase {
    * {@inheritdoc}
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state): void {
-    parent::validateConfigurationForm($form, $form_state);
-
-    $entity_type_id = $form_state->get('entity_type_id');
-    $bundle = $form_state->get('bundle');
-    if (!isset($entity_type_id, $bundle)) {
-      $form_state->setError($form, 'Invalid entity type or bundle');
+    $workflow = $form_state->getFormObject()?->getEntity();
+    if (!isset($workflow) || !($workflow instanceof ClassificationWorkflowInterface)) {
+      $form_state->setErrorByName('', 'Missing classification workflow.');
+      return;
     }
-    else {
-      $prompt = $form_state->getValue(['inference', 'prompt'], '');
-      $analyzable_fields = $form_state->getValue(['analyzable', 'fields'], []);
-      $classifiable_fields = $form_state->getValue(['classifiable', 'fields'], []);
 
-      $error_messages = $this->generatePromptErrorMessages($prompt, $analyzable_fields, $classifiable_fields, $entity_type_id, $bundle);
-      if (!empty($error_messages)) {
-        $form_state->setError($form['inference']['prompt'], implode(' ', $error_messages));
+    $parents = $form['#parents'];
+    $entity_type_id = $workflow->getTargetEntityTypeId();
+    $bundle = $workflow->getTargetBundle();
+
+    $prompt = $form_state->getValue(array_merge($parents, ['inference', 'prompt']), '');
+    $analyzable_fields = $form_state->getValue(array_merge($parents, ['analyzable', 'fields']), []);
+    $classifiable_fields = $form_state->getValue(array_merge($parents, ['classifiable', 'fields']), []);
+
+    $error_messages = $this->generatePromptErrorMessages($prompt, $analyzable_fields, $classifiable_fields, $entity_type_id, $bundle);
+    if (!empty($error_messages)) {
+      $prompt_element_name = implode('][', array_merge($parents, ['inference', 'prompt']));
+      foreach ($error_messages as $error_message) {
+        $form_state->setErrorByName($prompt_element_name, $error_message);
       }
     }
   }
@@ -481,7 +486,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function classifyEntity(ContentEntityInterface $entity): bool {
+  public function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
     $prompt = $this->getPluginSetting('inference.prompt');
 
     $analyzable_replacements = $this->getAnalyzableFieldReplacements($entity);
@@ -515,7 +520,11 @@ class InferenceClassifier extends ClassifierPluginBase {
     // Parse the output and update the term fields.
     $updated_fields = [];
     foreach ($this->getEnabledFields('classifiable') as $field_name => $settings) {
-      $placeholder = $settings['placeholder'];
+      if (empty($settings['placeholder'])) {
+        continue;
+      }
+
+      $placeholder = '{' . $settings['placeholder'] . '}';
       if (!isset($list_prefixes[$placeholder])) {
         continue;
       }
@@ -528,12 +537,12 @@ class InferenceClassifier extends ClassifierPluginBase {
         $mapping[$prefix . ($index + 1)] = $id;
       }
 
-      $term_ids = $this->extractTermIds($output, $placeholder, $mapping);
+      $term_ids = $this->extractTermIds($output, $settings['placeholder'], $mapping);
 
       // Check that we have the expected number of terms for the field.
       $term_id_count = count($term_ids);
-      $min = $settings['min'];
-      $max = $settings['max'];
+      $min = $workflow->getClassifiableFieldMin($field_name);
+      $max = $workflow->getClassifiableFieldMax($field_name);
       $is_under_min = $term_id_count < $min;
       $is_over_max = $max !== -1 && $term_id_count > $max;
 
@@ -608,7 +617,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   An exception if the tag is not in the text.
    */
   protected function extractTaggedContent(string $text, string $tag): string {
-    $pattern = sprintf('<%1$s>(.*?)</%1$s>', preg_quote($tag, '/'));
+    $pattern = sprintf('<%1$s>(.*?)<\/%1$s>', preg_quote($tag, '/'));
     if (preg_match('/' . $pattern . '/s', $text, $matches) !== 1) {
       throw new UnexpectedValueException(strtr('Missing @tag from AI output', [
         '@tag' => $tag,
@@ -640,7 +649,8 @@ class InferenceClassifier extends ClassifierPluginBase {
     }
 
     $prompt = $this->getPluginSetting('inference.prompt');
-    if (!$this->validatePrompt($prompt, $analyzable_fields, $classifiable_fields)) {
+    $prompt_errors = $this->validatePrompt($prompt, $analyzable_fields, $classifiable_fields);
+    if (!empty($prompt_errors)) {
       throw new InvalidConfigurationException(strtr('Invalid classifier inference prompt for @bundle_label @id, skipping.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -778,19 +788,13 @@ class InferenceClassifier extends ClassifierPluginBase {
       }
 
       // @todo review if/when we introduce processor plugins that can handle
-      // more complex data.
-      $value = $entity->get($field_name)->first()?->getValue();
-      if (is_scalar($value)) {
-        $value = (string) $value;
-
-        $value = match ($settings['processor']) {
-          'trimmed' => trim($value),
-          default => $value,
-        };
-      }
-      else {
-        $value = '';
-      }
+      // more complex data like taxonomy terms.
+      $value = $entity->get($field_name)->getString();
+      $value = strip_tags($value);
+      $value = match ($settings['processor']) {
+        'trimmed' => trim($value),
+        default => $value,
+      };
 
       $replacements['{' . $settings['placeholder'] . '}'] = $value;
     }
@@ -869,7 +873,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    */
   protected function getEnabledFields(string $type): array {
     $fields = $this->getPluginSetting($type . '.fields');
-    return array_filter(fn($settings) => !empty($settings['placeholder']), $fields);
+    return array_filter($fields, fn($settings) => !empty($settings['placeholder']));
   }
 
   /**

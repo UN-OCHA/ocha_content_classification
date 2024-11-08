@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\ocha_content_classification\Helpers;
+namespace Drupal\ocha_content_classification\Helper;
 
 use Drupal\Core\Entity\EntityInterface;
 
