@@ -451,7 +451,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'entity_bundle' => $entity_bundle,
           'entity_id' => $entity_id,
           'status' => $status,
-          'attempts' => 0,
+          'attempts' => $status === 'queued' ? 0 : 1,
           'created' => time(),
           'changed' => time(),
           'message' => $message,
