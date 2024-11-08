@@ -405,7 +405,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
 
     // Finally validate the classifier.
     // @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
-    return $this->getClassifierPlugin()?->validateEntity($entity, $this) ?? FALSE;
+    return $this->getClassifierPlugin()?->validateEntity($entity) ?? FALSE;
   }
 
   /**
@@ -451,7 +451,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'entity_bundle' => $entity_bundle,
           'entity_id' => $entity_id,
           'status' => $status,
-          'attempts' => 1,
+          'attempts' => 0,
           'created' => time(),
           'changed' => time(),
           'message' => $message,
