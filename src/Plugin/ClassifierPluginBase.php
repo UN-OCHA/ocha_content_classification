@@ -29,7 +29,7 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
   protected LoggerInterface $logger;
 
   /**
-   * Constructs a \Drupal\Component\Plugin\PluginBase object.
+   * Constructor.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.

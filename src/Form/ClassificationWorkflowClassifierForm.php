@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class ClassificationWorkflowClassifierForm extends EntityForm {
 
   /**
-   * Constructs a ClassificationWorkflowClassifierForm object.
+   * Constructor.
    *
    * @param \Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface $classifierPluginManager
    *   The classifier plugin manager.

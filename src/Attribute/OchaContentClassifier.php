@@ -23,7 +23,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 class OchaContentClassifier extends Plugin {
 
   /**
-   * Constructs a classifier attribute.
+   * Constructor.
    *
    * @param string $id
    *   The plugin ID.

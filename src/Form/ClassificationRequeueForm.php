@@ -8,7 +8,6 @@ use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\RevisionLogInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\ocha_content_classification\Helper\EntityHelper;
@@ -75,31 +74,14 @@ class ClassificationRequeueForm extends EntityConfirmFormBase {
     /** @var \Drupal\Core\Entity\ContentEntityInterface $entity */
     $entity = $this->entity;
 
-    // Retrieve the current revision log message for the entity so we can check
-    // if it has changed after queueing the entity in which case we want to
-    // update the entity with the new message.
-    $revision_message = NULL;
-    if ($entity instanceof RevisionLogInterface) {
-      $revision_message = $entity->getRevisionLogMessage();
-    }
-
     $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
 
     // Requeue the entity for classification.
-    if ($this->contentEntityClassifier->queueEntity($entity, TRUE)) {
+    if ($this->contentEntityClassifier->requeueEntity($entity)) {
       $this->messenger()->addMessage($this->t('The @bundle_label @entity_id has been requeued for classification.', [
         '@bundle_label' => $bundle_label,
         '@entity_id' => $entity->id(),
       ]));
-
-      // If the entity is revisionable, then save it to update its revision
-      // log message set in the queueEntity() method, if it has changed.
-      // We don't create a new revision because the entity itself was not
-      // modified.
-      // @see \Drupal\ocha_content_classification\Service\ContentEntityClassifierInterface::queueEntity()
-      if ($entity instanceof RevisionLogInterface && $entity->getRevisionLogMessage() !== $revision_message) {
-        $entity->save();
-      }
     }
     else {
       $this->messenger()->addError($this->t('The @bundle_label @entity_id could not be requeued for classification.', [

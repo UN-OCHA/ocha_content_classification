@@ -28,7 +28,7 @@ class ClassificationRequeueAccessCheck implements AccessInterface {
   ) {}
 
   /**
-   * Checks access to the relationship field on the given route.
+   * Check access to the relationship field on the given route.
    *
    * @param \Symfony\Component\Routing\Route $route
    *   The route to check against.

@@ -24,7 +24,7 @@ class ClassificationWorkflowFieldsForm extends EntityForm {
   protected EntityFieldManagerInterface $entityFieldManager;
 
   /**
-   * Constructs a ClassificationWorkflowEditForm object.
+   * Constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.

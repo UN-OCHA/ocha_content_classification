@@ -33,7 +33,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class InferenceClassifier extends ClassifierPluginBase {
 
   /**
-   * Constructs a CompletionClassifierPluginBase object.
+   * Constructor.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -335,7 +335,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Generates error messages for prompt validation.
+   * Generate error messages for prompt validation.
    *
    * @param string $prompt
    *   The prompt to validate.
@@ -567,7 +567,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Extracts and processes tagged content, matching terms to their IDs.
+   * Extract and processes tagged content, matching terms to their IDs.
    *
    * @param string $text
    *   The text containing tagged content.
@@ -603,7 +603,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Extracts content between XML-like tags.
+   * Extract content between XML-like tags.
    *
    * @param string $text
    *   The text to search in.
@@ -661,7 +661,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Validates the prompt against the analyzable and classifiable fields.
+   * Validate the prompt against the analyzable and classifiable fields.
    *
    * This method checks if all placeholders in the prompt correspond to
    * existing field placeholders, and if all field placeholders are used

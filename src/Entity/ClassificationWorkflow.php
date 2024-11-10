@@ -7,9 +7,15 @@ namespace Drupal\ocha_content_classification\Entity;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\ocha_content_classification\Exception\AlreadyProcessedException;
+use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\ocha_content_classification\Enum\ClassificationMessage;
+use Drupal\ocha_content_classification\Enum\ClassificationStatus;
+use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
+use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException;
 use Drupal\ocha_content_classification\Exception\UnsupportedEntityException;
+use Drupal\ocha_content_classification\Exception\WorkflowNotEnabledException;
 use Drupal\ocha_content_classification\Helper\EntityHelper;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
@@ -125,6 +131,13 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    * @var \Drupal\Core\Database\Connection
    */
   protected Connection $database;
+
+  /**
+   * The current user.
+   *
+   * @var \Drupal\Core\Session\AccountProxyInterface
+   */
+  protected AccountProxyInterface $currentUser;
 
   /**
    * {@inheritdoc}
@@ -348,6 +361,12 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    * {@inheritdoc}
    */
   public function validateEntity(ContentEntityInterface $entity, bool $check_status = TRUE): bool {
+    if (!$this->enabled()) {
+      throw new WorkflowNotEnabledException(strtr('Workflow @id not enabled.', [
+        '@id' => $this->id(),
+      ]));
+    }
+
     if ($entity->getEntityTypeId() !== $this->getTargetEntityTypeId() || $entity->bundle() !== $this->getTargetBundle()) {
       throw new UnsupportedEntityException('Entity type or bundle not supported.');
     }
@@ -357,17 +376,17 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $status = $existing_record['status'] ?? '';
     $attempts = $existing_record['attempts'] ?? 0;
 
-    // Skip if the entity is already processed.
-    if ($check_status && $status === 'processed') {
-      throw new AlreadyProcessedException(strtr('@bundle_label @id already processed.', [
+    // Skip if the classification is marked as completed.
+    if ($check_status && $status === ClassificationStatus::COMPLETED) {
+      throw new ClassificationCompletedException(strtr('Classification already completed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
       ]));
     }
 
     // Skip if the classification is marked as failure.
-    if ($check_status && $status === 'failed') {
-      throw new ClassificationFailedException(strtr('Classification failed for @bundle_label @id.', [
+    if ($check_status && $status === ClassificationStatus::FAILED) {
+      throw new ClassificationFailedException(strtr('Classification previously failed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
       ]));
@@ -375,7 +394,8 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
 
     // Skip if we reached the maximum number of classification attempts.
     if ($check_status && $attempts >= $this->getAttemptsLimit()) {
-      throw new ClassificationFailedException(strtr('Maximum classification attempts reached for @bundle_label @id.', [
+      throw new AttemptsLimitReachedException(strtr('Limit of @limit classification attempts reached for @bundle_label @id.', [
+        '@limit' => $this->getAttemptsLimit(),
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
       ]));
@@ -394,8 +414,11 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       }
 
       // The field is not empty, we consider the classification done.
+      // @todo review adding some settings to the workflow to control the
+      // behavior when a classifiable is already specified but other
+      // classifiable fields are not.
       if (!$entity->get($field_name)->isEmpty()) {
-        throw new AlreadyProcessedException(strtr('@field_label already specified for @bundle_label @id.', [
+        throw new FieldAlreadySpecifiedException(strtr('@field_label already specified for @bundle_label @id.', [
           '@field_label' => $entity->get($field_name)->getFieldDefinition()->getLabel(),
           '@bundle_label' => $bundle_label,
           '@id' => $entity->id(),
@@ -413,35 +436,47 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    */
   public function updateClassificationProgress(
     ContentEntityInterface $entity,
-    string $message,
-    string $status,
+    ClassificationMessage $message,
+    ClassificationStatus $status,
     bool $new = FALSE,
-  ): string {
+  ): void {
     // Extract necessary information from the entity.
     $entity_type_id = $entity->getEntityTypeId();
     $entity_bundle = $entity->bundle();
     $entity_id = $entity->id();
+    $entity_revision_id = $entity->getRevisionId();
+
+    // When creating or resetting a record, if the status is not queued, then
+    // we consider there was one attempt already.
+    $new_record_attempts = ($new && $status === ClassificationStatus::QUEUED) ? 0 : 1;
+
+    // Get the current timestamp.
+    $time = time();
+
+    // Get the ID of the classifier plugin.
+    $classifier = $this->getClassifierPluginId();
 
     // Retrieve the existing progress record if any.
     $existing_record = $this->getClassificationProgress($entity);
 
     if (!empty($existing_record)) {
-      // Update existing record: increment attempts and update status/message.
+      // Update existing record. If new was specified, reset the user ID,
+      // creation time and attempts.
       $this->getDatabase()->update('ocha_content_classification_progress')
         ->fields([
-          'status' => $status,
-          'attempts' => $new ? 1 : $existing_record['attempts'] + 1,
-          'created' => $new ? time() : $existing_record['created'],
-          'changed' => time(),
-          'message' => $message,
-          'classifier' => $this->getClassifierPluginId(),
+          'entity_revision_id' => $entity_revision_id,
+          'user_id' => $new ? $this->getCurrentUser()->id() : $existing_record['user_id'],
+          'status' => $status->value,
+          'attempts' => $new ? $new_record_attempts : $existing_record['attempts'] + 1,
+          'created' => $new ? $time : $existing_record['created'],
+          'changed' => $time,
+          'message' => $message->value,
+          'classifier' => $classifier,
         ])
         ->condition('entity_type_id', $entity_type_id)
         ->condition('entity_bundle', $entity_bundle)
         ->condition('entity_id', $entity_id)
         ->execute();
-
-      return $existing_record['status'];
     }
     else {
       // Insert a new record.
@@ -450,16 +485,16 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'entity_type_id' => $entity_type_id,
           'entity_bundle' => $entity_bundle,
           'entity_id' => $entity_id,
-          'status' => $status,
-          'attempts' => $status === 'queued' ? 0 : 1,
-          'created' => time(),
-          'changed' => time(),
-          'message' => $message,
-          'classifier' => $this->getClassifierPluginId(),
+          'entity_revision_id' => $entity_revision_id,
+          'user_id' => $this->getCurrentUser()->id(),
+          'status' => $status->value,
+          'attempts' => $new_record_attempts,
+          'created' => $time,
+          'changed' => $time,
+          'message' => $message->value,
+          'classifier' => $classifier,
         ])
         ->execute();
-
-      return '';
     }
   }
 
@@ -467,13 +502,41 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    * {@inheritdoc}
    */
   public function getClassificationProgress(ContentEntityInterface $entity): ?array {
-    return $this->getDatabase()->select('ocha_content_classification_progress', 'ocp')
+    $record = $this->getDatabase()->select('ocha_content_classification_progress', 'ocp')
       ->fields('ocp')
       ->condition('entity_type_id', $entity->getEntityTypeId())
       ->condition('entity_bundle', $entity->bundle())
       ->condition('entity_id', $entity->id())
       ->execute()
       ?->fetchAssoc() ?: NULL;
+
+    // Ensure the record properties have the proper types.
+    if (isset($record['entity_id'])) {
+      $record['entity_id'] = (int) $record['entity_id'];
+    }
+    if (isset($record['revision_id'])) {
+      $record['revision_id'] = (int) $record['revision_id'];
+    }
+    if (isset($record['user_id'])) {
+      $record['user_id'] = (int) $record['user_id'];
+    }
+    if (isset($record['status'])) {
+      $record['status'] = ClassificationStatus::tryFrom($record['status']) ?? '';
+    }
+    if (isset($record['attempts'])) {
+      $record['attempts'] = (int) $record['attempts'];
+    }
+    if (isset($record['created'])) {
+      $record['created'] = (int) $record['created'];
+    }
+    if (isset($record['changed'])) {
+      $record['changed'] = (int) $record['changed'];
+    }
+    if (isset($record['message'])) {
+      $record['message'] = ClassificationMessage::tryFrom($record['message']) ?? '';
+    }
+
+    return $record;
   }
 
   /**
@@ -511,6 +574,19 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       $this->database = \Drupal::database();
     }
     return $this->database;
+  }
+
+  /**
+   * Get the current user.
+   *
+   * @return \Drupal\Core\Session\AccountProxyInterface
+   *   The current user.
+   */
+  protected function getCurrentUser(): AccountProxyInterface {
+    if (!isset($this->currentUser)) {
+      $this->currentUser = \Drupal::currentUser();
+    }
+    return $this->currentUser;
   }
 
 }

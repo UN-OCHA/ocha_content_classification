@@ -29,7 +29,7 @@ jobs:
       - name: Checkout module
         uses: actions/checkout@v4
         with:
-          path: modules/contrib/ocha_entraid
+          path: modules/contrib/ocha_content_classification
 
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2
@@ -53,8 +53,8 @@ jobs:
 
       - name: Install Drupal core and module dependencies
         run: |
-          composer config repositories.module '{"type": "path", "url": "modules/contrib/ocha_entraid", "options": {"symlink": false}}'
-          composer require unocha/ocha_entraid:@dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
+          composer config repositories.module '{"type": "path", "url": "modules/contrib/ocha_content_classification", "options": {"symlink": false}}'
+          composer require unocha/ocha_content_classification:@dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
       - name: Define DRUPAL_ROOT env variable
         run: |
@@ -71,13 +71,13 @@ jobs:
         run: |
           php -d sendmail_path=$(which true); vendor/bin/drush --yes -v \
             site-install minimal --db-url="$SIMPLETEST_DB"
-          vendor/bin/drush en ocha_entraid -y
+          vendor/bin/drush en ocha_content_classification -y
 
       - name: Run module tests
         run: |
           XDEBUG_MODE=coverage php -d zend_extension=xdebug ./vendor/bin/phpunit --bootstrap core/tests/bootstrap.php \
             --coverage-clover ./clover.xml \
-            -c modules/contrib/ocha_entraid/phpunit.xml modules/contrib/ocha_entraid
+            -c modules/contrib/ocha_content_classification/phpunit.xml modules/contrib/ocha_content_classification
 
       - name: Monitor coverage
         id: coveralls
