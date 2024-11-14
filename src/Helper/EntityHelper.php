@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\ocha_content_classification\Helper;
 
 use Drupal\Core\Entity\EntityInterface;
@@ -18,7 +20,7 @@ class EntityHelper {
    * @return string
    *   Bundle label.
    */
-  public static function getBundleLabelFromEntity(EntityInterface $entity) {
+  public static function getBundleLabelFromEntity(EntityInterface $entity): string {
     return static::getBundleLabel($entity->getEntityTypeId(), $entity->bundle());
   }
 
@@ -33,8 +35,10 @@ class EntityHelper {
    * @return string
    *   Bundle label.
    */
-  public static function getBundleLabel($entity_type_id, $bundle) {
-    $bundle_info = \Drupal::service('entity_type.bundle.info')->getBundleInfo($entity_type_id);
+  public static function getBundleLabel(string $entity_type_id, string $bundle): string {
+    /** @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info */
+    $entity_type_bundle_info = \Drupal::service('entity_type.bundle.info');
+    $bundle_info = $entity_type_bundle_info->getBundleInfo($entity_type_id);
     return $bundle_info[$bundle]['label'] ?? $bundle;
   }
 

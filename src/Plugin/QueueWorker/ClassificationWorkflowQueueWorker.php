@@ -7,14 +7,17 @@ namespace Drupal\ocha_content_classification\Plugin\QueueWorker;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\RevisionLogInterface;
-use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
 use Drupal\Core\Queue\SuspendQueueException;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
-use Drupal\ocha_content_classification\Exception\AlreadyProcessedException;
+use Drupal\ocha_content_classification\Enum\ClassificationMessage;
+use Drupal\ocha_content_classification\Enum\ClassificationStatus;
+use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
+use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException;
 use Drupal\ocha_content_classification\Exception\UnexpectedValueException;
 use Drupal\ocha_content_classification\Exception\UnsupportedEntityException;
 use Drupal\ocha_content_classification\helper\EntityHelper;
@@ -105,38 +108,20 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
       return;
     }
 
-    // Retrieve the label of the entity bundle.
-    $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
-
     try {
-      // Classify the entity.
-      if ($workflow->classifyEntity($entity)) {
-        $message = strtr('Classification successful for @bundle_label @entity_id.', [
-          '@bundle_label' => $bundle_label,
-          '@entity_id' => $entity->id(),
-        ]);
-
-        // Mark the entity as processed.
-        $this->updateClassificationStatus($entity, $workflow, $message, 'processed');
-
-        $this->getLogger()->info($message);
-      }
+      $this->classifyEntity($entity, $workflow);
     }
     // Skip and remove the entity from the queue if unsupported.
     catch (UnsupportedEntityException $exception) {
       $this->getLogger()->error($exception->getMessage());
     }
-    // Skip and remove the entity from the queue if already processed.
-    catch (AlreadyProcessedException $exception) {
-      $this->getLogger()->notice($exception->getMessage());
-      // Ensure the classification progress record reflects the status.
-      $this->updateClassificationStatus($entity, $workflow, $exception->getMessage(), 'processed');
+    // Skip and remove the entity from the queue if already completed.
+    catch (ClassificationCompletedException $exception) {
+      $this->handleClassificationCompletedException($entity, $workflow, $exception);
     }
     // Skip and remove the entity from the queue if the classification failed.
     catch (ClassificationFailedException $exception) {
-      $this->getLogger()->warning($exception->getMessage());
-      // Ensure the classification progress record reflects the status.
-      $this->updateClassificationStatus($entity, $workflow, $exception->getMessage(), 'failed');
+      $this->handleClassificationFailedException($entity, $workflow, $exception);
     }
     // An unexpected value is when the classifier doesn't return the expected
     // output or not in the expected format. We only skip the processing for
@@ -144,52 +129,171 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     // The AI output is not fully deterministic even with a temperature of 0.0
     // so later attempts may result in correct output.
     catch (UnexpectedValueException $exception) {
-      // Retrieve how many classification attempts have already been made.
-      $existing_record = $workflow->getClassificationProgress($entity);
-      $attempts = $existing_record['attempts'] ?? 0;
-
-      // Mark as failed if the entity has reached the classification attempts
-      // limit.
-      if ($attempts >= $workflow->getAttemptsLimit()) {
-        $this->getLogger()->error('Classification failure for @bundle_label @entity_id: @error', [
-          '@bundle_label' => $bundle_label,
-          '@entity_id' => $entity->id(),
-          '@error' => $exception->getMessage(),
-        ]);
-
-        $message = strtr('Classification failure: limit of @limit attempts reached.', [
-          '@limit' => $workflow->getAttemptsLimit(),
-        ]);
-        $this->updateClassificationStatus($entity, $workflow, $message, 'failed');
-      }
-      // Otherwise update the progress record to increment the attempts number,
-      // without creating a new revision for the entity since this is temporary.
-      // Throw an exception to keep the item in the queue.
-      else {
-        $this->getLogger()->error('Temporary classification failure for @bundle_label @entity_id: @error', [
-          '@bundle_label' => $bundle_label,
-          '@entity_id' => $entity->id(),
-          '@error' => $exception->getMessage(),
-        ]);
-
-        // Keep the status as queued but update the progress record attempts.
-        $workflow->updateClassificationProgress($entity, 'AI classification failed; skipping temporarily.', 'queued');
-
-        // Rethrow the exception to keep the item in the queue so it can be
-        // processed again later on.
-        throw $exception;
-      }
+      $this->handleUnexpectedValueException($entity, $workflow, $exception);
     }
     // For other exceptions, like invalid configuration we stop the entire
     // queue processing but let the item in the queue for when the issue is
     // solved.
     catch (\Exception $exception) {
-      $this->getLogger()->error('Error while classifying @bundle_label @entity_id: @error', [
+      $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
+
+      $this->getLogger()->error(strtr('Error while classifying @bundle_label @entity_id: @error', [
         '@bundle_label' => $bundle_label,
         '@entity_id' => $entity->id(),
         '@error' => $exception->getMessage(),
-      ]);
+      ]));
+
       throw new SuspendQueueException($exception->getMessage());
+    }
+  }
+
+  /**
+   * Classify the entity.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification worklfow.
+   *
+   * @throws \Exception|\Drupal\ocha_content_classification\Exception\ExceptionInterface $exception
+   *   An exception if the classification didn't go as expected.
+   */
+  protected function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): void {
+    // This throws an exception in case of failure and TRUE on success.
+    if ($workflow->classifyEntity($entity)) {
+      $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
+
+      $this->getLogger()->info(strtr('Classification successful for @bundle_label @entity_id.', [
+        '@bundle_label' => $bundle_label,
+        '@entity_id' => $entity->id(),
+      ]));
+
+      // Mark the entity as processed.
+      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::COMPLETED, ClassificationStatus::COMPLETED);
+    }
+  }
+
+  /**
+   * Handle already processed exceptions.
+   *
+   * This happens when the classification was already marked as processed in the
+   * entity classification progress record or the classifiable fields have been
+   * specified otherwise (ex: manually by people with the bypass classification
+   * permission).
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification worklfow.
+   * @param \Drupal\ocha_content_classification\Exception\ClassificationCompletedException $exception
+   *   The exception.
+   */
+  protected function handleClassificationCompletedException(
+    ContentEntityInterface $entity,
+    ClassificationWorkflowInterface $workflow,
+    ClassificationCompletedException $exception,
+  ): void {
+    $this->getLogger()->notice($exception->getMessage());
+
+    if ($exception instanceof FieldAlreadySpecifiedException) {
+      $message = ClassificationMessage::FIELDS_ALREADY_SPECIFIED;
+    }
+    else {
+      $message = ClassificationMessage::COMPLETED;
+    }
+
+    // Ensure the classification progress record reflects the status.
+    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::COMPLETED);
+  }
+
+  /**
+   * Handle classification failed exceptions.
+   *
+   * This happens when the classification was already marked as failed or the
+   * attempts limit was reached in the entity classification progress record.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification worklfow.
+   * @param \Drupal\ocha_content_classification\Exception\ClassificationFailedException $exception
+   *   The exception.
+   */
+  protected function handleClassificationFailedException(
+    ContentEntityInterface $entity,
+    ClassificationWorkflowInterface $workflow,
+    ClassificationFailedException $exception,
+  ): void {
+    $this->getLogger()->warning($exception->getMessage());
+
+    if ($exception instanceof AttemptsLimitReachedException) {
+      $message = ClassificationMessage::ATTEMPTS_LIMIT_REACHED;
+    }
+    else {
+      $message = ClassificationMessage::FAILED;
+    }
+
+    // Ensure the classification progress record reflects the status.
+    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::FAILED);
+  }
+
+  /**
+   * Handle unexpected value exceptions.
+   *
+   * This happens when the classifier fails to classify the entity for temporary
+   * reasons like receiving an empty output from an AI etc. If the attempts
+   * limit has been reached we consider it a definitive failure otherwise we
+   * just increase the attempts count to try again later.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification worklfow.
+   * @param \Drupal\ocha_content_classification\Exception\UnexpectedValueException $exception
+   *   The exception.
+   *
+   * @throws \Drupal\ocha_content_classification\Exception\UnexpectedValueException
+   *   Rethrow the exception in case of temporary failure to keep the item in
+   *   the queue so that it can be processed again later.
+   */
+  protected function handleUnexpectedValueException(
+    ContentEntityInterface $entity,
+    ClassificationWorkflowInterface $workflow,
+    UnexpectedValueException $exception,
+  ): void {
+    $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
+
+    // Retrieve how many classification attempts have already been made.
+    $existing_record = $workflow->getClassificationProgress($entity);
+    $attempts = $existing_record['attempts'] ?? 0;
+
+    // Mark as failed if the entity has reached the classification attempts
+    // limit.
+    if ($attempts >= $workflow->getAttemptsLimit()) {
+      $this->getLogger()->error(strtr('Classification failure for @bundle_label @entity_id: @error', [
+        '@bundle_label' => $bundle_label,
+        '@entity_id' => $entity->id(),
+        '@error' => $exception->getMessage(),
+      ]));
+
+      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::ATTEMPTS_LIMIT_REACHED, ClassificationStatus::FAILED);
+    }
+    // Otherwise update the progress record to increment the attempts number,
+    // without creating a new revision for the entity since this is temporary.
+    // Throw an exception to keep the item in the queue.
+    else {
+      $this->getLogger()->error(strtr('Temporary classification failure for @bundle_label @entity_id: @error', [
+        '@bundle_label' => $bundle_label,
+        '@entity_id' => $entity->id(),
+        '@error' => $exception->getMessage(),
+      ]));
+
+      // Keep the status as queued but update the progress record attempts.
+      $workflow->updateClassificationProgress($entity, ClassificationMessage::FAILED_TEMPORARILY, ClassificationStatus::QUEUED);
+
+      // Rethrow the exception to keep the item in the queue so it can be
+      // processed again later on.
+      throw $exception;
     }
   }
 
@@ -222,22 +326,29 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   The content entity being classified.
    * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
    *   The classification workflow.
-   * @param string $message
+   * @param \Drupal\ocha_content_classification\enum\ClassificationMessage $message
    *   A message (ex: error).
-   * @param string $status
+   * @param \Drupal\ocha_content_classification\enum\ClassificationStatus $status
    *   The classification status (queued, processed or failed).
    */
   protected function updateClassificationStatus(
     ContentEntityInterface $entity,
     ClassificationWorkflowInterface $workflow,
-    string $message,
-    string $status,
+    ClassificationMessage $message,
+    ClassificationStatus $status,
   ): void {
-    // Update the classification progress record and save the changes to the
-    // entity if the classification status changed.
-    if ($workflow->updateClassificationProgress($entity, $message, $status) !== $status) {
-      $this->saveEntity($entity, $message);
+    $existing_record = $workflow->getClassificationProgress($entity);
+    $existing_status = $existing_record['status'] ?? NULL;
+
+    // Save the changes to the entity if the classification status changed, for
+    // example from queued to processed.
+    if ($existing_status !== $status) {
+      $this->saveEntity($entity, $message, $existing_record['user_id'] ?? NULL);
     }
+
+    // Update the classification progress record with the new status and
+    // message.
+    $workflow->updateClassificationProgress($entity, $message, $status);
   }
 
   /**
@@ -247,17 +358,23 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   Entity.
-   * @param string $message
+   * @param \Drupal\ocha_content_classification\enum\ClassificationMessage $message
    *   Revision message.
+   * @param ?int $user_id
+   *   The ID of the user who initiated the classification.
    */
-  protected function saveEntity(ContentEntityInterface $entity, string $message): void {
-    if ($entity instanceof RevisionableInterface) {
-      $entity->setNewRevision(TRUE);
-    }
+  protected function saveEntity(ContentEntityInterface $entity, ClassificationMessage $message, ?int $user_id = NULL): void {
     if ($entity instanceof RevisionLogInterface) {
+      // If there is a user ID (and it's not anonymous = 0), use it as revision
+      // user ID, otherwise let Drupal chose (previous revision user, owner or
+      // current user).
+      if (!empty($user_id)) {
+        $entity->setRevisionUserId($user_id);
+      }
       $entity->setRevisionCreationTime(time());
-      $entity->setRevisionLogMessage($message);
+      $entity->setRevisionLogMessage($message->value);
     }
+    $entity->setNewRevision(TRUE);
     $entity->save();
   }
 

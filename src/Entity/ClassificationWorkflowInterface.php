@@ -6,6 +6,8 @@ namespace Drupal\ocha_content_classification\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\ocha_content_classification\Enum\ClassificationMessage;
+use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface;
 
 /**
@@ -140,7 +142,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function getClassifierPlugin(): ?ClassifierPluginInterface;
 
   /**
-   * Checks if a field is enabled for analyzable content.
+   * Check if a field is enabled for analyzable content.
    *
    * @param string $field_name
    *   The field name.
@@ -151,7 +153,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function isAnalyzableFieldEnabled(string $field_name): bool;
 
   /**
-   * Sets the enabled status for an analyzable field.
+   * Set the enabled status for an analyzable field.
    *
    * @param string $field_name
    *   The field name.
@@ -163,7 +165,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function setAnalyzableFieldEnabled(string $field_name, bool $enabled): self;
 
   /**
-   * Checks if a field is enabled for classification.
+   * Check if a field is enabled for classification.
    *
    * @param string $field_name
    *   The field name.
@@ -174,7 +176,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function isClassifiableFieldEnabled(string $field_name): bool;
 
   /**
-   * Sets the enabled status for a classifiable field.
+   * Set the enabled status for a classifiable field.
    *
    * @param string $field_name
    *   The field name.
@@ -186,7 +188,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function setClassifiableFieldEnabled(string $field_name, bool $enabled): self;
 
   /**
-   * Gets the minimum value for a classifiable field.
+   * Get the minimum value for a classifiable field.
    *
    * @param string $field_name
    *   The field name.
@@ -197,7 +199,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function getClassifiableFieldMin(string $field_name): int;
 
   /**
-   * Sets the minimum value for a classifiable field.
+   * Set the minimum value for a classifiable field.
    *
    * @param string $field_name
    *   The field name.
@@ -209,7 +211,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function setClassifiableFieldMin(string $field_name, int $min): self;
 
   /**
-   * Gets the maximum value for a classifiable field.
+   * Get the maximum value for a classifiable field.
    *
    * @param string $field_name
    *   The field name.
@@ -220,7 +222,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function getClassifiableFieldMax(string $field_name): int;
 
   /**
-   * Sets the maximum value for a classifiable field.
+   * Set the maximum value for a classifiable field.
    *
    * @param string $field_name
    *   The field name.
@@ -271,12 +273,18 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    * @return bool
    *   TRUE if the entity can be processed.
    *
-   * @throws \Drupal\ocha_content_classification\Exception\AlreadyProcessedException
-   *   If the entity has already been processed.
-   * @throws \Drupal\ocha_content_classification\Exception\ClassificationFailedException
-   *   If the classification is marked as failed for the entity.
+   * @throws \Drupal\ocha_content_classification\Exception\WorkflowNotEnabledException
+   *   If the workflow is not enabled.
    * @throws \Drupal\ocha_content_classification\Exception\UnsupportedEntityException
-   *   If the entity cannot be processed by the workflow.
+   *   If the entity cannot be processed by the workflow (ex: missing fields).
+   * @throws \Drupal\ocha_content_classification\Exception\ClassificationCompletedException
+   *   If the classification was already completed.
+   * @throws \Drupal\ocha_content_classification\Exception\ClassificationFailedException
+   *   If the classification is marked as failed.
+   * @throws \Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException
+   *   If the classification attempts limit was reached.
+   * @throws \Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException
+   *   If a classifiable field is already specified (not empty).
    * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   If the configuration is invalid (ex: missing settings).
    */
@@ -287,23 +295,20 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The content entity being classified.
-   * @param string $message
+   * @param \Drupal\ocha_content_classification\Enum\ClassificationMessage $message
    *   The log message for this attempt (ex: success, error, temporary failure)
-   * @param string $status
+   * @param \Drupal\ocha_content_classification\Enum\ClassificationStatus $status
    *   The classification status (queued, processed, skipped).
    * @param bool $new
    *   Optional flag to create a new record or reset existing ones when TRUE
    *   (ex: requeueing).
-   *
-   * @return string
-   *   The previous record status.
    */
   public function updateClassificationProgress(
     ContentEntityInterface $entity,
-    string $message,
-    string $status,
+    ClassificationMessage $message,
+    ClassificationStatus $status,
     bool $new = FALSE,
-  ): string;
+  ): void;
 
   /**
    * Get the existing classification progress for an entity.

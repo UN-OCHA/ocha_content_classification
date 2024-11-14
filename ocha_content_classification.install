@@ -30,11 +30,23 @@ function ocha_content_classification_schema() {
         'not null' => TRUE,
         'description' => 'The ID of the classified entity.',
       ],
+      'entity_revision_id'  => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The revision ID of the classified entity.',
+      ],
+      'user_id'  => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The ID of the user who initiated the creation of this record.',
+      ],
       'status' => [
         'type' => 'varchar_ascii',
         'length' => 32,
         'not null' => TRUE,
-        'description' => 'The status of the classification (queued, processed or failed).',
+        'description' => 'The status of the classification (queued, completed or failed).',
       ],
       'attempts' => [
         'type' => 'int',

@@ -17,7 +17,7 @@ use Symfony\Component\Routing\RouteCollection;
 final class OchaContentClassificationRoutes implements ContainerInjectionInterface {
 
   /**
-   * Constructs a new OchaContentClassificationRoutes object.
+   * Constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   The entity type manager.
@@ -36,7 +36,7 @@ final class OchaContentClassificationRoutes implements ContainerInjectionInterfa
   }
 
   /**
-   * Returns a collection of routes for content classification.
+   * Return a collection of routes for content classification.
    *
    * @return \Symfony\Component\Routing\RouteCollection
    *   A collection of routes for content classification.
@@ -75,7 +75,7 @@ final class OchaContentClassificationRoutes implements ContainerInjectionInterfa
   }
 
   /**
-   * Builds a route for the given entity type.
+   * Build a route for the given entity type.
    *
    * @param string $entity_type_id
    *   The entity type ID.

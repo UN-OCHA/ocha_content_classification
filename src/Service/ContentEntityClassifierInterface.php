@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ocha_content_classification\Service;
 
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
@@ -43,17 +44,17 @@ interface ContentEntityClassifierInterface {
   public function getWorkflowForEntity(EntityInterface $entity): ?ClassificationWorkflowInterface;
 
   /**
-   * Requeue an entity for classification, resetting status and attempts.
+   * Requeue an entity for classification if valid.
+   *
+   * If the entity can be requeued, a new revision will be created.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   Entity to requeue.
-   * @param bool $requeue
-   *   TRUE to requeue the item.
    *
    * @return bool
-   *   TRUE if the entity was queued.
+   *   TRUE if the entity was requeued.
    */
-  public function queueEntity(EntityInterface $entity, bool $requeue = FALSE): bool;
+  public function requeueEntity(ContentEntityInterface $entity): bool;
 
   /**
    * Act on an entity before it is saved.

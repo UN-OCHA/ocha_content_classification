@@ -19,7 +19,7 @@ class RequeueClassificationLocalTask extends DeriverBase implements ContainerDer
   use StringTranslationTrait;
 
   /**
-   * Creates a RequeueClassificationLocalTask object.
+   * Constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   The entity type manager.
