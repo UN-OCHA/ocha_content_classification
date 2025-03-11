@@ -10,6 +10,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\RevisionLogInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
@@ -20,6 +21,7 @@ use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
 use Drupal\ocha_content_classification\Helper\EntityHelper;
+use Drupal\user\EntityOwnerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -61,6 +63,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    *   The entity type manager.
    * @param \Drupal\Core\Queue\QueueFactory $queueFactory
    *   The queue factory.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The queue factory.
    */
   public function __construct(
     protected ConfigFactoryInterface $configFactory,
@@ -68,6 +72,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     protected AccountProxyInterface $currentUser,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected QueueFactory $queueFactory,
+    protected ModuleHandlerInterface $moduleHandler,
   ) {}
 
   /**
@@ -155,13 +160,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     // again.
     $this->handleEntityBeingReverted($entity);
 
-    // Skip if the user is not allowed to use the automated classification.
-    if (!$this->currentUser->hasPermission('apply ocha content classification')) {
-      return;
-    }
-
-    // Skip if the user can bypass the automated classification.
-    if ($this->currentUser->hasPermission('bypass ocha content classification')) {
+    // Check the permission to use the automated classification.
+    if (!$this->checkUserPermissions($entity)) {
       return;
     }
 
@@ -192,7 +192,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       $field_definition = $entity->get($field_name)->getFieldDefinition();
 
       if ($field_definition->isRequired()) {
-        // Make the field temporary not mandatory so the entity can be saved.
+        // Make the field temporarily not mandatory so the entity can be saved.
         $field_definition->setRequired(FALSE);
         // Store a reference to the field so we can reset is requirement status.
         $this->storeMandatoryField($entity, $field_name);
@@ -217,7 +217,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     //
     // @todo Do we want to update the revision message to indicate the entity
     // is still being queued for classification for example?
-    if ($this->canEntityByQueued($entity)) {
+    if ($this->canEntityBeQueued($entity)) {
       $this->addEntityQueuedRevisionMessage($entity);
     }
   }
@@ -230,13 +230,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    // Skip if the user is not allowed to use the automated classification.
-    if (!$this->currentUser->hasPermission('apply ocha content classification')) {
-      return;
-    }
-
-    // Skip if the user can bypass the automated classification.
-    if ($this->currentUser->hasPermission('bypass ocha content classification')) {
+    // Check the permission to use the automated classification.
+    if (!$this->checkUserPermissions($entity)) {
       return;
     }
 
@@ -294,13 +289,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    // Skip if the user is not allowed to use the automated classification.
-    if (!$this->currentUser->hasPermission('apply ocha content classification')) {
-      return;
-    }
-
-    // Skip if the user can bypass the automated classification.
-    if ($this->currentUser->hasPermission('bypass ocha content classification')) {
+    // Check the permission to use the automated classification.
+    if (!$this->checkUserPermissions($entity)) {
       return;
     }
 
@@ -322,19 +312,26 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       // Nothing to do, those are valid exceptions and we hide the fields
       // regardless.
     }
-    catch (\Exception) {
+    catch (\Exception $exception) {
       // For other exceptions, we do not modify the form and show the fields
       // since that may be because the entity is not supported, invalid or
       // there is some configuration issue preventing the classification.
       return;
     }
 
-    // Hide classifiable fields since they will be populated automatically.
+    // Hide classifiable and fillable fields since they will be populated
+    // automatically.
     //
     // @todo show a message indicating the automatic tagging instead of
     // fully hiding them?
     foreach ($workflow->getEnabledClassifiableFields() as $field_name => $field_info) {
-      if ($entity->hasField($field_name)) {
+      if ($entity->hasField($field_name) && $workflow->getClassifiableFieldHide($field_name)) {
+        $form[$field_name]['#access'] = FALSE;
+        $form[$field_name]['#required'] = FALSE;
+      }
+    }
+    foreach ($workflow->getEnabledFillableFields() as $field_name => $field_info) {
+      if ($entity->hasField($field_name) && $workflow->getFillableFieldHide($field_name)) {
         $form[$field_name]['#access'] = FALSE;
         $form[$field_name]['#required'] = FALSE;
       }
@@ -433,7 +430,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    * @return bool
    *   TRUE if the entity is already queued or has been processed.
    */
-  protected function canEntityByQueued(EntityInterface $entity): bool {
+  protected function canEntityBeQueued(EntityInterface $entity): bool {
     $workflow = $this->getWorkflowForEntity($entity);
     if (empty($workflow)) {
       return FALSE;
@@ -465,7 +462,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return FALSE;
     }
 
-    if (!$this->canEntityByQueued($entity)) {
+    if (!$this->canEntityBeQueued($entity)) {
       return FALSE;
     }
 
@@ -550,6 +547,57 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     catch (\Exception $exception) {
       return FALSE;
     }
+  }
+
+  /**
+   * Check if the user has the permissions to use the automated classification.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity to potentially classify.
+   *
+   * @return bool
+   *   TRUE if the user is allowed to use the automated classification.
+   */
+  protected function checkUserPermissions(EntityInterface $entity): bool {
+    // We need to check the revision user if defined.
+    $account = $this->currentUser;
+    if (!$entity->isNew()) {
+      if ($entity instanceof RevisionLogInterface) {
+        $account = $entity->getRevisionUser();
+      }
+      elseif ($entity instanceof EntityOwnerInterface) {
+        $account = $entity->getOwner();
+      }
+    }
+
+    if (empty($account)) {
+      return FALSE;
+    }
+
+    // Let other modules decide if we should check the user permissions.
+    $check_permissions = TRUE;
+    $check_permissions_context = ['entity' => $entity];
+    $this->moduleHandler->alter(
+      'ocha_content_classification_user_permission_check',
+      $check_permissions,
+      $account,
+      $check_permissions_context,
+    );
+    if (!$check_permissions) {
+      return TRUE;
+    }
+
+    // Skip if the user is not allowed to use the automated classification.
+    if (!$account->hasPermission('apply ocha content classification')) {
+      return FALSE;
+    }
+
+    // Skip if the user can bypass the automated classification.
+    if ($account->hasPermission('bypass ocha content classification')) {
+      return FALSE;
+    }
+
+    return TRUE;
   }
 
   /**

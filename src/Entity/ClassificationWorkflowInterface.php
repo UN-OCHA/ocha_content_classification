@@ -62,6 +62,37 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function setAttemptsLimit(?int $limit): self;
 
   /**
+   * Get the list of enabled validation checks.
+   *
+   * @return array
+   *   Associative array of enabled validation checks with the check names as
+   *   keys and whether they are enabled or not as values.
+   */
+  public function getValidationChecks(): array;
+
+  /**
+   * Set the list of enabled validation checks.
+   *
+   * @param ?array $checks
+   *   Associative array of enabled validation checks with the check names as
+   *   keys and whether they are enabled or not as values.
+   *
+   * @return $this
+   */
+  public function setValidationChecks(?array $checks): self;
+
+  /**
+   * Indicate if a validation check is enabled.
+   *
+   * @param string $name
+   *   Validation check name.
+   *
+   * @return bool
+   *   TRUE if the validation check is enabled.
+   */
+  public function getValidationCheck(string $name): bool;
+
+  /**
    * Get the entity type ID this workflow applies to.
    *
    * @return ?string
@@ -234,6 +265,144 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
   public function setClassifiableFieldMax(string $field_name, int $max): self;
 
   /**
+   * Get whether the classifiable field should be hidden in the form.
+   *
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return bool
+   *   TRUE if the field should be hidden.
+   */
+  public function getClassifiableFieldHide(string $field_name): bool;
+
+  /**
+   * Set whether the classifiable field should be hidden in the form.
+   *
+   * @param string $field_name
+   *   The field name.
+   * @param bool $hide
+   *   TRUE if the field should be hidden.
+   *
+   * @return $this
+   */
+  public function setClassifiableFieldHide(string $field_name, bool $hide): self;
+
+  /**
+   * Get whether the field should be updated even if it already had a value.
+   *
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return bool
+   *   TRUE if the classification should be forced.
+   */
+  public function getClassifiableFieldForce(string $field_name): bool;
+
+  /**
+   * Set whether the field should be updated even if it already had a value.
+   *
+   * @param string $field_name
+   *   The field name.
+   * @param bool $force
+   *   TRUE if the classification should be forced.
+   *
+   * @return $this
+   */
+  public function setClassifiableFieldForce(string $field_name, bool $force): self;
+
+  /**
+   * Check if a fillable field is enabled.
+   *
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return bool
+   *   TRUE if the field is enabled, FALSE otherwise.
+   */
+  public function isFillableFieldEnabled(string $field_name): bool;
+
+  /**
+   * Set the enabled status for a fillable field.
+   *
+   * @param string $field_name
+   *   The field name.
+   * @param bool $enabled
+   *   TRUE to enable, FALSE to disable.
+   *
+   * @return $this
+   */
+  public function setFillableFieldEnabled(string $field_name, bool $enabled): self;
+
+  /**
+   * Get the properties of fillable field that can be filled.
+   *
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return array
+   *   Field properties.
+   */
+  public function getFillableFieldProperties(string $field_name): array;
+
+  /**
+   * Set the properties of fillable field that can be filled.
+   *
+   * @param string $field_name
+   *   The field name.
+   * @param array $properties
+   *   Field properties.
+   *
+   * @return $this
+   */
+  public function setFillableFieldProperties(string $field_name, array $properties): self;
+
+  /**
+   * Get whether the classifiable field should be hidden in the form.
+   *
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return bool
+   *   TRUE if the field should be hidden.
+   */
+  public function getFillableFieldHide(string $field_name): bool;
+
+  /**
+   * Set whether the classifiable field should be hidden in the form.
+   *
+   * @param string $field_name
+   *   The field name.
+   * @param bool $hide
+   *   TRUE if the field should be hidden.
+   *
+   * @return $this
+   */
+  public function setFillableFieldHide(string $field_name, bool $hide): self;
+
+  /**
+   * Get whether the field should be updated even if it already had a value.
+   *
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return bool
+   *   TRUE if the classification should be forced.
+   */
+  public function getFillableFieldForce(string $field_name): bool;
+
+  /**
+   * Set whether the field should be updated even if it already had a value.
+   *
+   * @param string $field_name
+   *   The field name.
+   * @param bool $force
+   *   TRUE if the classification should be forced.
+   *
+   * @return $this
+   */
+  public function setFillableFieldForce(string $field_name, bool $force): self;
+
+  /**
    * Get the list of enabled analyzable fields.
    *
    * @return array<string, mixed>
@@ -248,6 +417,26 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    *   An associative array of the classifiable fields keyed by field names.
    */
   public function getEnabledClassifiableFields(): array;
+
+  /**
+   * Get the list of enabled fillable fields.
+   *
+   * @return array<string, mixed>
+   *   An associative array of the fillable fields keyed by field names.
+   */
+  public function getEnabledFillableFields(): array;
+
+  /**
+   * Get the list of enabled for the given field categories.
+   *
+   * @param array $types
+   *   List of field types: 'analyzable', 'classifiable' or 'fillable'.
+   *
+   * @return array<string, mixed>
+   *   An associative array of the fields keyed by field names. They have a
+   *   type property ('analyzable', 'classifiable' or 'fillable').
+   */
+  public function getEnabledFields(array $types): array;
 
   /**
    * Classify an entity.
@@ -298,7 +487,7 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    * @param \Drupal\ocha_content_classification\Enum\ClassificationMessage $message
    *   The log message for this attempt (ex: success, error, temporary failure)
    * @param \Drupal\ocha_content_classification\Enum\ClassificationStatus $status
-   *   The classification status (queued, processed, skipped).
+   *   The classification status (queued, processed, failed).
    * @param bool $new
    *   Optional flag to create a new record or reset existing ones when TRUE
    *   (ex: requeueing).

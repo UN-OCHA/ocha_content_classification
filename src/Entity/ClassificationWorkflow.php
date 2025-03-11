@@ -72,42 +72,49 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * The Classification Workflow ID.
    *
-   * @var string
+   * @var ?string
    */
   protected ?string $id;
 
   /**
    * The Classification Workflow label.
    *
-   * @var string
+   * @var ?string
    */
   protected ?string $label;
 
   /**
    * Maximum number of attempts before failure.
    *
-   * @var int
+   * @var ?int
    */
   protected ?int $limit;
 
   /**
+   * List of validation checks to perform.
+   *
+   * @var ?array
+   */
+  protected ?array $validation;
+
+  /**
    * The workflow target settings.
    *
-   * @var array
+   * @var ?array
    */
   protected ?array $target;
 
   /**
    * The workflow fields settings.
    *
-   * @var array
+   * @var ?array
    */
   protected ?array $fields;
 
   /**
    * The workflow classifier settings.
    *
-   * @var array
+   * @var ?array
    */
   protected ?array $classifier;
 
@@ -175,6 +182,28 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   public function setAttemptsLimit(?int $limit): self {
     $this->limit = isset($limit) ? max(1, $limit) : NULL;
     return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValidationChecks(): array {
+    return $this->validation ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setValidationChecks(?array $checks): self {
+    $this->validation = array_map(fn($check) => (bool) $check, $checks ?? []);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValidationCheck(string $name): bool {
+    return !empty($this->validation[$name]);
   }
 
   /**
@@ -324,24 +353,126 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
+  public function getClassifiableFieldHide(string $field_name): bool {
+    return $this->fields['classifiable'][$field_name]['hide'] ?? TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setClassifiableFieldHide(string $field_name, bool $hide): self {
+    $this->fields['classifiable'][$field_name]['hide'] = $hide;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getClassifiableFieldForce(string $field_name): bool {
+    return $this->fields['classifiable'][$field_name]['force'] ?? FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setClassifiableFieldForce(string $field_name, bool $force): self {
+    $this->fields['classifiable'][$field_name]['force'] = $force;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isFillableFieldEnabled(string $field_name): bool {
+    return !empty($this->fields['fillable'][$field_name]['enabled']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldEnabled(string $field_name, bool $enabled): self {
+    $this->fields['fillable'][$field_name]['enabled'] = $enabled;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFillableFieldProperties(string $field_name): array {
+    return $this->fields['fillable'][$field_name]['properties'] ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldProperties(string $field_name, array $properties): self {
+    $this->fields['fillable'][$field_name]['properties'] = array_values(array_filter($properties));
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFillableFieldHide(string $field_name): bool {
+    return $this->fields['fillable'][$field_name]['hide'] ?? TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldHide(string $field_name, bool $hide): self {
+    $this->fields['fillable'][$field_name]['hide'] = $hide;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFillableFieldForce(string $field_name): bool {
+    return $this->fields['fillable'][$field_name]['force'] ?? FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldForce(string $field_name, bool $force): self {
+    $this->fields['fillable'][$field_name]['force'] = $force;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getEnabledAnalyzableFields(): array {
-    $fields = [];
-    foreach ($this->fields['analyzable'] ?? [] as $field_name => $field_info) {
-      if (!empty($field_info['enabled'])) {
-        $fields[$field_name] = $field_info;
-      }
-    }
-    return $fields;
+    return $this->getEnabledFields(['analyzable']);
   }
 
   /**
    * {@inheritdoc}
    */
   public function getEnabledClassifiableFields(): array {
+    return $this->getEnabledFields(['classifiable']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEnabledFillableFields(): array {
+    return $this->getEnabledFields(['fillable']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEnabledFields(array $types): array {
     $fields = [];
-    foreach ($this->fields['classifiable'] ?? [] as $field_name => $field_info) {
-      if (!empty($field_info['enabled'])) {
-        $fields[$field_name] = $field_info;
+    foreach ($types as $type) {
+      foreach ($this->fields[$type] ?? [] as $field_name => $field_info) {
+        if (!empty($field_info['enabled'])) {
+          $fields[$field_name] = $field_info + [
+            'type' => $type,
+          ];
+        }
       }
     }
     return $fields;
@@ -401,28 +532,43 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       ]));
     }
 
-    // Check if any of the classifiable field has already been specified in
-    // which case we skip the automated classification.
-    foreach (array_keys($this->getEnabledClassifiableFields()) as $field_name) {
-      // We cannot classify an entity missing fields.
-      if (!$entity->hasField($field_name)) {
-        throw new UnsupportedEntityException(strtr('@field_name missing for @bundle_label @id.', [
-          '@field_name' => $field_name,
-          '@bundle_label' => $bundle_label,
-          '@id' => $entity->id(),
-        ]));
-      }
+    // Check if any of the classifiable or fillable field has already been
+    // specified (i.e. has a value) in which case we skip the automated
+    // classification.
+    if ($this->getValidationCheck('empty')) {
+      $fields_to_check = $this->getEnabledFields(['classifiable', 'fillable']);
+      $fields_to_check = array_map(fn($field) => TRUE, $fields_to_check);
 
-      // The field is not empty, we consider the classification done.
-      // @todo review adding some settings to the workflow to control the
-      // behavior when a classifiable is already specified but other
-      // classifiable fields are not.
-      if (!$entity->get($field_name)->isEmpty()) {
-        throw new FieldAlreadySpecifiedException(strtr('@field_label already specified for @bundle_label @id.', [
-          '@field_label' => $entity->get($field_name)->getFieldDefinition()->getLabel(),
-          '@bundle_label' => $bundle_label,
-          '@id' => $entity->id(),
-        ]));
+      // Allow modules to determine which fields should be check to determine
+      // if the automated classification is allowed.
+      $fields_to_check_context = ['entity' => $entity];
+      $this->moduleHandler->alter(
+        'ocha_content_classification_specified_field_check',
+        $fields_to_check,
+        $workflow,
+        $fields_to_check_context,
+      );
+
+      foreach ($fields_to_check as $field_name => $check) {
+        // We cannot classify an entity missing field.
+        if (!$entity->hasField($field_name)) {
+          throw new UnsupportedEntityException(strtr('@field_name missing for @bundle_label @id.', [
+            '@field_name' => $field_name,
+            '@bundle_label' => $bundle_label,
+            '@id' => $entity->id(),
+          ]));
+        }
+
+        // The field is not empty, we consider the classification done.
+        // @todo Check if we want to skip the full classification or simply
+        // skip the update of the field.
+        if ($check && !$entity->get($field_name)->isEmpty()) {
+          throw new FieldAlreadySpecifiedException(strtr('@field_label already specified for @bundle_label @id.', [
+            '@field_label' => $entity->get($field_name)->getFieldDefinition()->getLabel(),
+            '@bundle_label' => $bundle_label,
+            '@id' => $entity->id(),
+          ]));
+        }
       }
     }
 
