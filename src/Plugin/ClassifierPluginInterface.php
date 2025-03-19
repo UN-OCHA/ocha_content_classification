@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\ocha_content_classification\Plugin;
 
 use Drupal\Core\Entity\ContentEntityInterface;
@@ -49,7 +51,7 @@ interface ClassifierPluginInterface {
    * @return mixed
    *   The plugin setting for the key or the provided default.
    *
-   * @throws \Drupal\ocha_content_classification\Exception\MissingSettingException
+   * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   Throws an exception if no setting could be found (= NULL).
    */
   public function getPluginSetting(string $key, mixed $default = NULL, bool $throw_if_null = TRUE): mixed;
