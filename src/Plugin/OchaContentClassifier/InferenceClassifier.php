@@ -1247,7 +1247,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @return string
    *   Prompt ready for inference.
    *
-   * @throws \Drupal\ocha_content_classification\Exception\MissingSettingException
+   * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   Exception if the prompt or field settings could not be retrieved.
    */
   public function preparePrompt(string $prompt, ContentEntityInterface $entity, array $fields, array &$list_prefixes): string {
@@ -1510,7 +1510,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @return array<string,mixed>
    *   Associative array of fields and their settings keyed by field names.
    *
-   * @throws \Drupal\ocha_content_classification\Exception\MissingSettingException
+   * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   Exception if the fields settings could not be retrieved.
    */
   protected function getEnabledFields(string $type): array {
