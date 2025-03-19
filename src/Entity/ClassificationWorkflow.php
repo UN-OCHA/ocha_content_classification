@@ -508,7 +508,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $attempts = $existing_record['attempts'] ?? 0;
 
     // Skip if the classification is marked as completed.
-    if ($check_status && $status === ClassificationStatus::COMPLETED) {
+    if ($check_status && $status === ClassificationStatus::Completed) {
       throw new ClassificationCompletedException(strtr('Classification already completed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -516,7 +516,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     }
 
     // Skip if the classification is marked as failure.
-    if ($check_status && $status === ClassificationStatus::FAILED) {
+    if ($check_status && $status === ClassificationStatus::Failed) {
       throw new ClassificationFailedException(strtr('Classification previously failed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -594,7 +594,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
 
     // When creating or resetting a record, if the status is not queued, then
     // we consider there was one attempt already.
-    $new_record_attempts = ($new && $status === ClassificationStatus::QUEUED) ? 0 : 1;
+    $new_record_attempts = ($new && $status === ClassificationStatus::Queued) ? 0 : 1;
 
     // Get the current timestamp.
     $time = time();

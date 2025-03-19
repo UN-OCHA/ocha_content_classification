@@ -8,10 +8,10 @@ namespace Drupal\ocha_content_classification\Enum;
  * Classification messages.
  */
 enum ClassificationMessage: string {
-  case QUEUED = 'Queued for automated classification.';
-  case COMPLETED = 'Automated classification completed.';
-  case FAILED = 'Automated classification failed.';
-  case ATTEMPTS_LIMIT_REACHED = 'Automated classification stopped: too many attempts.';
-  case FIELDS_ALREADY_SPECIFIED = 'Automated classification skipped: information already provided.';
-  case FAILED_TEMPORARILY = 'Automated classification failed temporarily.';
+  case Queued = 'Queued for automated classification.';
+  case Completed = 'Automated classification completed.';
+  case Failed = 'Automated classification failed.';
+  case AttemptsLimitReached = 'Automated classification stopped: too many attempts.';
+  case FieldsAlreadySpecified = 'Automated classification skipped: information already provided.';
+  case FailedTemporarily = 'Automated classification failed temporarily.';
 }

@@ -487,7 +487,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     }
 
     // Create a new classification progress record for the entity.
-    $workflow->updateClassificationProgress($entity, ClassificationMessage::QUEUED, ClassificationStatus::QUEUED, TRUE);
+    $workflow->updateClassificationProgress($entity, ClassificationMessage::Queued, ClassificationStatus::Queued, TRUE);
 
     return TRUE;
   }
@@ -506,7 +506,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    $message = ClassificationMessage::QUEUED->value;
+    $message = ClassificationMessage::Queued->value;
 
     if (!$replace) {
       // Only add the message if not already in the current revision message.

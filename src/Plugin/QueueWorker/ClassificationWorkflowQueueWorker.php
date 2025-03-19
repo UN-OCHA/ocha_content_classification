@@ -169,7 +169,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
       ]));
 
       // Mark the entity as processed.
-      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::COMPLETED, ClassificationStatus::COMPLETED);
+      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::Completed, ClassificationStatus::Completed);
     }
   }
 
@@ -196,14 +196,14 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     $this->getLogger()->notice($exception->getMessage());
 
     if ($exception instanceof FieldAlreadySpecifiedException) {
-      $message = ClassificationMessage::FIELDS_ALREADY_SPECIFIED;
+      $message = ClassificationMessage::FieldsAlreadySpecified;
     }
     else {
-      $message = ClassificationMessage::COMPLETED;
+      $message = ClassificationMessage::Completed;
     }
 
     // Ensure the classification progress record reflects the status.
-    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::COMPLETED);
+    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::Completed);
   }
 
   /**
@@ -227,14 +227,14 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     $this->getLogger()->warning($exception->getMessage());
 
     if ($exception instanceof AttemptsLimitReachedException) {
-      $message = ClassificationMessage::ATTEMPTS_LIMIT_REACHED;
+      $message = ClassificationMessage::AttemptsLimitReached;
     }
     else {
-      $message = ClassificationMessage::FAILED;
+      $message = ClassificationMessage::Failed;
     }
 
     // Ensure the classification progress record reflects the status.
-    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::FAILED);
+    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::Failed);
   }
 
   /**
@@ -276,7 +276,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
         '@error' => $exception->getMessage(),
       ]));
 
-      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::ATTEMPTS_LIMIT_REACHED, ClassificationStatus::FAILED);
+      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::AttemptsLimitReached, ClassificationStatus::Failed);
     }
     // Otherwise update the progress record to increment the attempts number,
     // without creating a new revision for the entity since this is temporary.
@@ -289,7 +289,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
       ]));
 
       // Keep the status as queued but update the progress record attempts.
-      $workflow->updateClassificationProgress($entity, ClassificationMessage::FAILED_TEMPORARILY, ClassificationStatus::QUEUED);
+      $workflow->updateClassificationProgress($entity, ClassificationMessage::FailedTemporarily, ClassificationStatus::Queued);
 
       // Rethrow the exception to keep the item in the queue so it can be
       // processed again later on.

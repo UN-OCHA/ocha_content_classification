@@ -418,7 +418,6 @@ class ClassificationWorkflowFieldsForm extends EntityForm {
         $fillable_fields[$field_name]['label'] = $field->getLabel();
 
         // Get the list of properties.
-        $properties = [];
         foreach ($field->getFieldStorageDefinition()->getPropertyDefinitions() as $property => $property_definition) {
           if (
             $property_definition->isComputed() ||

@@ -8,7 +8,7 @@ namespace Drupal\ocha_content_classification\Enum;
  * Classification statuses.
  */
 enum ClassificationStatus: string {
-  case QUEUED = 'queued';
-  case COMPLETED = 'completed';
-  case FAILED = 'failed';
+  case Queued = 'queued';
+  case Completed = 'completed';
+  case Failed = 'failed';
 }
