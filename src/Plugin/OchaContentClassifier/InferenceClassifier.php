@@ -275,16 +275,16 @@ class InferenceClassifier extends ClassifierPluginBase {
         $index = 1;
         $terms = $this->getTaxonomyTerms($vocabulary, self::TERM_LIMIT);
         foreach ($terms as $tid => $term) {
-          $term_description = $config['classifiable']['fields'][$field_name]['terms'][$tid] ?? $term->getDescription();
+          $term_value = $config['classifiable']['fields'][$field_name]['terms'][$tid] ?? $term->getDescription() ?? $term->getName() ?? '';
           $form['classifiable']['fields'][$field_name]['terms'][$tid] = [
             '#type' => 'textarea',
             '#title' => $this->t('@index. @label', [
               '@index' => $index,
               '@label' => $term->label(),
             ]),
-            '#default_value' => $term_description,
+            '#default_value' => $term_value,
             '#cols' => 40,
-            '#rows' => max(1, floor(mb_strlen($term_description) / 40)),
+            '#rows' => max(1, floor(mb_strlen($term_value) / 40)),
           ];
           $index++;
         }
@@ -430,7 +430,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       '#type' => 'textarea',
       '#title' => $this->t('Prompt'),
       '#default_value' => $prompt,
-      '#description' => $this->t('Prompt to analyze and classify content. Use placeholders from analyzable and classifiable fields in the form <code>{placeholder}</code>. For analyzable fields, the placeholder will be replaced with the processed value. For classifiable fields, it will be replaced with a numbered list of terms (A1, A2, etc. for the first list in the prompt; B1, B2, etc. for the second). Structure the prompt to output XML, using the classifiable field <code>placeholders</code> as tags. Example: <code>&lt;theme&gt;Single item number (B1-B20)&lt;/theme&gt;</code>. You can also add a ":name" suffix to a placeholder to output the name instead of the value or list of terms.'),
+      '#description' => $this->t('Prompt to analyze and classify content. Use placeholders from analyzable and classifiable fields in the form <code>{placeholder}</code>. For analyzable fields, the placeholder will be replaced with the processed value. For classifiable fields, it will be replaced with a numbered list of terms (A1, A2, etc. for the first list in the prompt; B1, B2, etc. for the second). Structure the prompt to output XML, using the classifiable field <code>placeholders</code> as tags. Example: <code>&lt;theme&gt;Single item number (B1-B20)&lt;/theme&gt;</code>. You can also add suffixes to the placeholder: ":name" to output the placeholder name instead of the value or list of terms and for classifiable fields: ":range" to output the range in the form "B1-B20" and ":random" to select a random item index in the list like "B7".'),
       '#cols' => 100,
       '#rows' => max(15, floor(mb_strlen($prompt) / 100)),
       '#required' => TRUE,
@@ -773,15 +773,29 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   The entity being classified.
    * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
    *   The classification workflow.
+   * @param ?string $system_prompt
+   *   Optional system prompt. If not set, it will be retrieved from the config.
+   * @param ?string $prompt
+   *   Optional prompt. If not set, it will be retrieved from the config.
+   * @param ?array $enabled_fields
+   *   List of enabled fields for the workflow. This can be used to override the
+   *   entity fields to use for the inference and to populate after it. This
+   *   should contain data as return by ::getEnabledFields() of this classifier.
    *
    * @return bool
    *   TRUE if the entity was updated.
    */
-  protected function queryModel(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
-    $system_prompt = $this->getPluginSetting('inference.system_prompt', '', FALSE);
-    $prompt = $this->getPluginSetting('inference.prompt');
+  public function queryModel(
+    ContentEntityInterface $entity,
+    ClassificationWorkflowInterface $workflow,
+    ?string $system_prompt = NULL,
+    ?string $prompt = NULL,
+    ?array $enabled_fields = NULL,
+  ): bool {
+    $system_prompt ??= $this->getPluginSetting('inference.system_prompt', '', FALSE);
+    $prompt ??= $this->getPluginSetting('inference.prompt');
 
-    $enabled_fields = [
+    $enabled_fields ??= [
       'analyzable' => $this->getEnabledFields('analyzable'),
       'classifiable' => $this->getEnabledFields('classifiable'),
       'fillable' => $this->getEnabledFields('fillable'),
@@ -791,8 +805,8 @@ class InferenceClassifier extends ClassifierPluginBase {
     // by their placeholders.
     $fields = [];
     foreach ($enabled_fields as $type => $field_list) {
-      foreach ($field_list as $field_name => $field) {
-        $fields[$field['placeholder']] = $field + [
+      foreach ($field_list as $field_name => $field_info) {
+        $fields[$field_info['placeholder']] = $field_info + [
           'name' => $field_name,
           'type' => $type,
         ];
@@ -830,7 +844,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     }
 
     // Parse the output of the AI.
-    return $this->parseOutput($entity, $workflow, $output, $list_prefixes);
+    return $this->parseOutput($entity, $workflow, $enabled_fields, $output, $list_prefixes);
   }
 
   /**
@@ -840,6 +854,8 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   The entity being classified.
    * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
    *   The classification workflow.
+   * @param array $fields
+   *   List of analyzable, classifiable and fillable fields.
    * @param string $output
    *   The AI output.
    * @param array $list_prefixes
@@ -851,6 +867,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   protected function parseOutput(
     ContentEntityInterface $entity,
     ClassificationWorkflowInterface $workflow,
+    array $fields,
     string $output,
     array $list_prefixes,
   ): bool {
@@ -860,8 +877,10 @@ class InferenceClassifier extends ClassifierPluginBase {
     // Get the list of fields that are marked for a forced update if they are
     // already populated.
     $force_update = [];
-    foreach ($workflow->getEnabledFields(['classifiable', 'fillable']) as $field_name => $field_info) {
-      $force_update[$field_name] = !empty($field_info['force']);
+    foreach (['classifiable', 'fillable'] as $type) {
+      foreach ($fields[$type] ?? [] as $field_name => $field_info) {
+        $force_update[$field_name] = !empty($field_info['force']);
+      }
     }
 
     // Allow other module to alter the list of forced updates.
@@ -874,7 +893,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     );
 
     // Process the classifiable fields.
-    foreach ($this->getEnabledFields('classifiable') as $field_name => $settings) {
+    foreach ($fields['classifiable'] ?? [] as $field_name => $settings) {
       // Skip if the field is not empty.
       if (empty($force_update[$field_name]) && !$entity->get($field_name)->isEmpty()) {
         continue;
@@ -912,8 +931,8 @@ class InferenceClassifier extends ClassifierPluginBase {
 
       // Check that we have the expected number of terms for the field.
       $term_id_count = count($term_ids);
-      $min = $workflow->getClassifiableFieldMin($field_name);
-      $max = $workflow->getClassifiableFieldMax($field_name);
+      $min = $settings['min'] ?? $workflow->getClassifiableFieldMin($field_name);
+      $max = $settings['max'] ?? $workflow->getClassifiableFieldMax($field_name);
       $is_under_min = $term_id_count < $min;
       $is_over_max = $max !== -1 && $term_id_count > $max;
 
@@ -930,7 +949,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     }
 
     // Process the fillable fields.
-    foreach ($this->getEnabledFields('fillable') as $field_name_extended => $settings) {
+    foreach ($fields['fillable'] ?? [] as $field_name_extended => $settings) {
       [$field_name, $property] = explode('__', $field_name_extended, 2);
 
       // Skip if the field property is not empty.
@@ -957,8 +976,8 @@ class InferenceClassifier extends ClassifierPluginBase {
           $parts = $this->extractValuesBetweenTags($content);
           if (!empty($parts)) {
             $parts = array_map(fn($part) => TextHelper::sanitizeText($part, $preserve_new_lines), $parts);
-            // We "glue" the parts using 2 line breaks which the standard way
-            // to separate line breaks int markdown.
+            // We "glue" the parts using 2 line breaks which is the standard way
+            // to separate line breaks in markdown.
             $content = implode("\n\n", $parts);
           }
           else {
@@ -1007,13 +1026,11 @@ class InferenceClassifier extends ClassifierPluginBase {
     $updated = !empty($updated_fields);
 
     // Allow other modules to do something with the result.
-    $updated = $updated || $this->moduleHandler->invokeAll('ocha_content_classification_post_classify_entity', [
-      'entity' => $entity,
-      'workflow' => $workflow,
-      'classifier' => $this,
-      'updated' => $updated,
-      'data' => $output,
-    ]);
+    $hook_updated = $this->moduleHandler->invokeAll(
+      'ocha_content_classification_post_classify_entity',
+      [$entity, $workflow, $this, $updated, ['output' => $output]]
+    );
+    $updated = $updated || in_array(TRUE, $hook_updated, TRUE);
 
     return $updated;
   }
@@ -1222,7 +1239,8 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
    * @param array $fields
-   *   List of analyzable and classifiable fields keyed by their placeholders.
+   *   List of analyzable, classifiable and fillable fields keyed by their
+   *   placeholders.
    * @param array $list_prefixes
    *   Prefixes for the lists. This is used to extract the selected values.
    *
@@ -1232,26 +1250,28 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @throws \Drupal\ocha_content_classification\Exception\MissingSettingException
    *   Exception if the prompt or field settings could not be retrieved.
    */
-  protected function preparePrompt(string $prompt, ContentEntityInterface $entity, array $fields, array &$list_prefixes): string {
+  public function preparePrompt(string $prompt, ContentEntityInterface $entity, array $fields, array &$list_prefixes): string {
     $placeholder_pattern = implode('|', array_map('preg_quote', array_keys($fields)));
 
     $pattern = "/[{](?<placeholder>(?:{$placeholder_pattern}))(?<modifier>:[^:}]+)?[}]/";
 
-    $prompt = preg_replace_callback($pattern, function ($matches) use ($entity, $fields, &$list_prefixes) {
+    $prompt = preg_replace_callback($pattern, function ($matches) use ($entity, &$fields, &$list_prefixes) {
       $placeholder = $matches['placeholder'];
       $modifier = $matches['modifier'] ?? '';
 
-      $field = $fields[$placeholder];
+      $field = &$fields[$placeholder];
       if ($field['type'] === 'analyzable') {
         return match($modifier) {
-          '' => $this->getAnalyzableFieldValue($entity, $field),
+          '', ':value' => $this->getAnalyzableFieldValue($entity, $field),
           ':name' => $placeholder,
           default => '',
         };
       }
       elseif ($field['type'] === 'classifiable') {
         return match($modifier) {
-          '' => $this->getClassifiableFieldValue($entity, $field, $list_prefixes),
+          '', ':value', ':list' => $this->getClassifiableFieldList($entity, $field, $list_prefixes),
+          ':range' => $this->getClassifiableFieldListRange($entity, $field, $list_prefixes),
+          ':random' => $this->getClassifiableFieldListRandomKey($entity, $field, $list_prefixes),
           ':name' => $placeholder,
           default => '',
         };
@@ -1317,6 +1337,10 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   Field value to use in the prompt.
    */
   protected function getAnalyzableFieldValue(ContentEntityInterface $entity, array $field): string {
+    if (isset($field['value'])) {
+      return $field['value'];
+    }
+
     if (empty($field['name']) || empty($field['placeholder']) || empty($field['processor'])) {
       return '';
     }
@@ -1334,13 +1358,17 @@ class InferenceClassifier extends ClassifierPluginBase {
       return $placeholder . '1';
     }
 
-    return $this->analyzableFieldProcessorPluginManager
+    $field['value'] = $this->analyzableFieldProcessorPluginManager
       ->createInstance($field['processor'])
       ->toString($placeholder, $entity->get($field_name));
+
+    // Store the value so that we don't need to recompute the value when calling
+    // again this method when preparing the prompt.
+    return $field['value'];
   }
 
   /**
-   * Get the value of classifiable field to use in the prompt.
+   * Get the values of a classifiable field to use in the prompt.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
@@ -1350,10 +1378,15 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   Prefixes for the lists of terms. This is used to extract the selected
    *   terms.
    *
-   * @return string
-   *   Field value to use in the prompt. This is a plain text list of terms.
+   * @return array
+   *   Field value to use in the prompt. This is an associative array with the
+   *   prefixed list items as keys (e.g. A1, A2) and the term values as values.
    */
-  protected function getClassifiableFieldValue(ContentEntityInterface $entity, array $field, array &$list_prefixes): string {
+  protected function getClassifiableFieldValues(ContentEntityInterface $entity, array &$field, array &$list_prefixes): array {
+    if (isset($field['values'])) {
+      return $field['values'];
+    }
+
     $property = $field['property'] ?? 'custom';
     $placeholder = $field['placeholder'];
 
@@ -1367,7 +1400,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     }
 
     if (empty($terms)) {
-      return '';
+      return [];
     }
 
     $prefix = $list_prefixes[$placeholder] ?? chr(ord('A') + count($list_prefixes));
@@ -1375,10 +1408,97 @@ class InferenceClassifier extends ClassifierPluginBase {
 
     $list = [];
     foreach (array_values($terms) as $index => $value) {
-      $list[] = $prefix . ($index + 1) . ') ' . $value;
+      $list[$prefix . ($index + 1)] = $value;
     }
 
-    return implode("\n", $list);
+    // Store the values in the field to avoid recomputing them.
+    $field['values'] = $list;
+
+    return $list;
+  }
+
+  /**
+   * Get a formatted list of values of classifiable field to use in the prompt.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param array $field
+   *   Settings of the analyzable field.
+   * @param array $list_prefixes
+   *   Prefixes for the lists of terms. This is used to extract the selected
+   *   terms.
+   *
+   * @return string
+   *   Field value to use in the prompt. This is a plain text list of terms.
+   */
+  protected function getClassifiableFieldList(ContentEntityInterface $entity, array &$field, array &$list_prefixes): string {
+    $list = $this->getClassifiableFieldValues($entity, $field, $list_prefixes);
+    if (empty($list)) {
+      return '';
+    }
+
+    return implode("\n", array_map(
+      function ($key) use ($list) {
+        return "$key) " . $list[$key];
+      },
+      array_keys($list)
+    ));
+  }
+
+  /**
+   * Get the range of the values of a classifiable field to use in the prompt.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param array $field
+   *   Settings of the analyzable field.
+   * @param array $list_prefixes
+   *   Prefixes for the lists of terms. This is used to extract the selected
+   *   terms.
+   *
+   * @return string
+   *   Value list range in the form `A1-A7`.
+   */
+  protected function getClassifiableFieldListRange(ContentEntityInterface $entity, array &$field, array &$list_prefixes): string {
+    $list = $this->getClassifiableFieldValues($entity, $field, $list_prefixes);
+    if (empty($list)) {
+      return '';
+    }
+    return array_key_first($list) . '-' . array_key_last($list);
+  }
+
+  /**
+   * Get the key of a random value of a classifiable field to use in the prompt.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param array $field
+   *   Settings of the analyzable field.
+   * @param array $list_prefixes
+   *   Prefixes for the lists of terms. This is used to extract the selected
+   *   terms.
+   *
+   * @return string
+   *   Random value key.
+   */
+  protected function getClassifiableFieldListRandomKey(ContentEntityInterface $entity, array &$field, array &$list_prefixes): string {
+    $list = $this->getClassifiableFieldValues($entity, $field, $list_prefixes);
+    if (empty($list)) {
+      return '';
+    }
+
+    // Reset the list of already generated random keys if we exhausted the
+    // possibilities already.
+    if (isset($field['random']) && count($field['random']) === count($list)) {
+      $field['random'] = [];
+    }
+    $random_key = array_rand(array_diff_key($list, $field['random'] ?? []));
+
+    // Store the extracted random key so a next call to this method will return
+    // a different key.
+    $field['random'][$random_key] = TRUE;
+
+    return $random_key;
   }
 
   /**
