@@ -972,7 +972,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       [$field_name, $property] = explode('__', $field_name_extended, 2);
 
       // Skip if the field property is not empty.
-      if (empty($force_update[$field_name]) && !empty($entity->get($field_name)->{$property})) {
+      if (empty($force_update[$field_name_extended]) && !empty($entity->get($field_name)->{$property})) {
         continue;
       }
 
