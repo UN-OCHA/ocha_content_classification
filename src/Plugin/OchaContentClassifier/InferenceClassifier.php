@@ -227,6 +227,8 @@ class InferenceClassifier extends ClassifierPluginBase {
 
     foreach ($classifiable_fields as $field_name => $field_info) {
       $field_definition = $field_definitions[$field_name];
+      $field_min = $field_info['min'] ?? 0;
+      $field_max = $field_info['max'] ?? 1;
 
       $form['classifiable']['fields'][$field_name] = [
         'field' => [
@@ -244,10 +246,10 @@ class InferenceClassifier extends ClassifierPluginBase {
           '#description' => NULL,
         ],
         'min' => [
-          '#plain_text' => $field_info['min'] ?? 0,
+          '#plain_text' => $field_min,
         ],
         'max' => [
-          '#plain_text' => $field_info['max'] ?? 1,
+          '#plain_text' => $field_max,
         ],
       ];
 
@@ -287,6 +289,21 @@ class InferenceClassifier extends ClassifierPluginBase {
             '#rows' => max(1, floor(mb_strlen($term_value) / 40)),
           ];
           $index++;
+        }
+        // If the field doesn't have a minimum, then add an option for an
+        // empty selection.
+        if (empty($field_min)) {
+          $term_value = $config['classifiable']['fields'][$field_name]['terms']['empty'] ?? '';
+          $form['classifiable']['fields'][$field_name]['terms']['empty'] = [
+            '#type' => 'textarea',
+            '#title' => $this->t('@index. @label', [
+              '@index' => $index,
+              '@label' => $this->t('Empty selection option'),
+            ]),
+            '#default_value' => $term_value,
+            '#cols' => 40,
+            '#rows' => max(1, floor(mb_strlen($term_value) / 40)),
+          ];
         }
       }
       else {
@@ -1077,7 +1094,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     if (!empty($mapping)) {
       foreach ($items as $item) {
         $id = $mapping[$item] ?? $mapping[strtolower($item)] ?? NULL;
-        if (isset($id)) {
+        if (isset($id) && $id !== 'empty') {
           // Ensure uniqueness.
           $extracted_term_ids[$id] = $id;
         }
@@ -1278,6 +1295,7 @@ class InferenceClassifier extends ClassifierPluginBase {
           '', ':value', ':list' => $this->getClassifiableFieldList($entity, $field, $list_prefixes),
           ':range' => $this->getClassifiableFieldListRange($entity, $field, $list_prefixes),
           ':random' => $this->getClassifiableFieldListRandomKey($entity, $field, $list_prefixes),
+          ':empty' => $this->getClassifiableFieldListEmptyKey($entity, $field, $list_prefixes),
           ':name' => $placeholder,
           default => '',
         };
@@ -1505,6 +1523,39 @@ class InferenceClassifier extends ClassifierPluginBase {
     $field['random'][$random_key] = TRUE;
 
     return $random_key;
+  }
+
+  /**
+   * Get the key of the empty value of a classifiable field.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param array $field
+   *   Settings of the analyzable field.
+   * @param array $list_prefixes
+   *   Prefixes for the lists of terms. This is used to extract the selected
+   *   terms.
+   *
+   * @return string
+   *   Empty value key if any.
+   */
+  protected function getClassifiableFieldListEmptyKey(ContentEntityInterface $entity, array &$field, array &$list_prefixes): string {
+    $list = $this->getClassifiableFieldValues($entity, $field, $list_prefixes);
+    if (empty($list)) {
+      return '';
+    }
+
+    $property = $field['property'] ?? 'custom';
+    if ($property === 'custom') {
+      $terms = array_filter($field['terms'] ?? []);
+      $list_keys = array_keys($list);
+      foreach (array_keys($terms) as $index => $key) {
+        if ($key === 'empty') {
+          return $list_keys[$index] ?? '';
+        }
+      }
+    }
+    return '';
   }
 
   /**
