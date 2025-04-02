@@ -27,8 +27,8 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface;
  *   The workflow used for classification.
  * @param \Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface $classifier
  *   The classifier plugin that performed the classification.
- * @param bool $updated
- *   Whether any fields were updated during classification.
+ * @param array $updated_fields
+ *   Fields of the entity that were updated during the classification.
  * @param array $data
  *   Data used for the classification. This depends on the classifier.
  *
@@ -40,7 +40,7 @@ function hook_ocha_content_classification_post_classify_entity(
   EntityInterface $entity,
   ClassificationWorkflowInterface $workflow,
   ClassifierPluginInterface $classifier,
-  bool $updated,
+  array $updated_fields,
   array $data,
 ) {
   // Example: Log classification results.
@@ -52,12 +52,12 @@ function hook_ocha_content_classification_post_classify_entity(
   // Example: Perform additional operations based on classification output.
   if (!empty(data['some_specific_data'])) {
     // Do something with the data.
-    // Indicate we made changes.
-    return TRUE;
+    // Return the list of updated entity fields.
+    return ['some_updated_field'];
   }
 
   // No changes made.
-  return FALSE;
+  return NULL;
 }
 
 /**
