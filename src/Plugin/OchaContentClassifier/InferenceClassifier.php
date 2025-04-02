@@ -762,7 +762,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
+  public function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): ?array {
     return $this->queryModel($entity, $workflow);
   }
 
@@ -782,8 +782,9 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   entity fields to use for the inference and to populate after it. This
    *   should contain data as return by ::getEnabledFields() of this classifier.
    *
-   * @return bool
-   *   TRUE if the entity was updated.
+   * @return ?array
+   *   The list of the entity fields that were updated if the classification was
+   *   successful, NULL otherwise.
    */
   public function queryModel(
     ContentEntityInterface $entity,
@@ -791,7 +792,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     ?string $system_prompt = NULL,
     ?string $prompt = NULL,
     ?array $enabled_fields = NULL,
-  ): bool {
+  ): ?array {
     $system_prompt ??= $this->getPluginSetting('inference.system_prompt', '', FALSE);
     $prompt ??= $this->getPluginSetting('inference.prompt');
 
@@ -861,8 +862,9 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @param array $list_prefixes
    *   Prefixes for the lists. This is used to extract the selected values.
    *
-   * @return bool
-   *   TRUE if the entity was updated.
+   * @return ?array
+   *   The list of the entity fields that were updated if the classification was
+   *   successful, NULL otherwise.
    */
   protected function parseOutput(
     ContentEntityInterface $entity,
@@ -870,7 +872,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     array $fields,
     string $output,
     array $list_prefixes,
-  ): bool {
+  ): ?array {
     // Parse the output and update the term fields.
     $updated_fields = [];
 
@@ -1001,6 +1003,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     }
 
     // Update the entity.
+    $entity_updated_fields = [];
     foreach ($updated_fields as $type => $field_list) {
       foreach ($field_list as $field_name => $values) {
         // Classifiable fields are taxonomy term fields, we can simply pass
@@ -1020,19 +1023,22 @@ class InferenceClassifier extends ClassifierPluginBase {
             $field_item->set($property, $value);
           }
         }
+        $entity_updated_fields[] = $field_name;
       }
     }
 
-    $updated = !empty($updated_fields);
-
     // Allow other modules to do something with the result.
-    $hook_updated = $this->moduleHandler->invokeAll(
+    $hook_entity_updated_fields = $this->moduleHandler->invokeAll(
       'ocha_content_classification_post_classify_entity',
-      [$entity, $workflow, $this, $updated, ['output' => $output]]
-    );
-    $updated = $updated || in_array(TRUE, $hook_updated, TRUE);
+      [$entity, $workflow, $this, $entity_updated_fields, ['output' => $output]]
+    ) ?? [];
 
-    return $updated;
+    $entity_updated_fields = array_unique(array_merge(
+      $entity_updated_fields,
+      $hook_entity_updated_fields,
+    ));
+
+    return $entity_updated_fields;
   }
 
   /**

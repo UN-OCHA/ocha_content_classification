@@ -444,10 +444,11 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity to classify.
    *
-   * @return bool
-   *   TRUE if the classification was successful.
+   * @return ?array
+   *   The list of the entity fields that were updated if the classification was
+   *   successful, NULL otherwise.
    */
-  public function classifyEntity(ContentEntityInterface $entity): bool;
+  public function classifyEntity(ContentEntityInterface $entity): ?array;
 
   /**
    * Check if an entity can be processed by the workflow.
@@ -491,12 +492,15 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    * @param bool $new
    *   Optional flag to create a new record or reset existing ones when TRUE
    *   (ex: requeueing).
+   * @param ?array $updated_fields
+   *   List of updated fields during the classification.
    */
   public function updateClassificationProgress(
     ContentEntityInterface $entity,
     ClassificationMessage $message,
     ClassificationStatus $status,
     bool $new = FALSE,
+    ?array $updated_fields = NULL,
   ): void;
 
   /**

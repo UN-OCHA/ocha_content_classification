@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\ocha_content_classification\Plugin;
 
 use Drupal\Core\Entity\ContentEntityInterface;
@@ -18,10 +20,11 @@ interface ClassifierPluginInterface {
    * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
    *   The classification workflow.
    *
-   * @return bool
-   *   TRUE if the classification was successful.
+   * @return ?array
+   *   The list of the entity fields that were updated if the classification was
+   *   successful, NULL otherwise.
    */
-  public function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool;
+  public function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): ?array;
 
   /**
    * Check if an entity can be processed by the classifier.

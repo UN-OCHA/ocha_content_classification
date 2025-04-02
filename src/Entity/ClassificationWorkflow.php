@@ -481,11 +481,11 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function classifyEntity(ContentEntityInterface $entity): bool {
+  public function classifyEntity(ContentEntityInterface $entity): ?array {
     if ($this->validateEntity($entity)) {
-      return $this->getClassifierPlugin()?->classifyEntity($entity, $this) ?? FALSE;
+      return $this->getClassifierPlugin()?->classifyEntity($entity, $this);
     }
-    return FALSE;
+    return NULL;
   }
 
   /**
@@ -585,6 +585,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     ClassificationMessage $message,
     ClassificationStatus $status,
     bool $new = FALSE,
+    ?array $updated_fields = NULL,
   ): void {
     // Extract necessary information from the entity.
     $entity_type_id = $entity->getEntityTypeId();
@@ -618,6 +619,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'changed' => $time,
           'message' => $message->value,
           'classifier' => $classifier,
+          'updated_fields' => json_encode($updated_fields),
         ])
         ->condition('entity_type_id', $entity_type_id)
         ->condition('entity_bundle', $entity_bundle)
@@ -639,6 +641,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'changed' => $time,
           'message' => $message->value,
           'classifier' => $classifier,
+          'updated_fields' => json_encode($updated_fields),
         ])
         ->execute();
     }
@@ -680,6 +683,9 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     }
     if (isset($record['message'])) {
       $record['message'] = ClassificationMessage::tryFrom($record['message']) ?? '';
+    }
+    if (isset($record['updated_fields'])) {
+      $record['updated_fields'] = json_decode($record['updated_fields']);
     }
 
     return $record;

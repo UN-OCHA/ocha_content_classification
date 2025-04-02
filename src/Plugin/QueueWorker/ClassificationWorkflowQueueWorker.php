@@ -159,18 +159,19 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   An exception if the classification didn't go as expected.
    */
   protected function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): void {
-    // This throws an exception in case of failure and TRUE on success.
-    if ($workflow->classifyEntity($entity)) {
-      $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
+    // This throws an exception in case of failure and returns the list of the
+    // fields updated during the classification otherwise.
+    $updated_fields = $workflow->classifyEntity($entity);
 
-      $this->getLogger()->info(strtr('Classification successful for @bundle_label @entity_id.', [
-        '@bundle_label' => $bundle_label,
-        '@entity_id' => $entity->id(),
-      ]));
+    $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
 
-      // Mark the entity as processed.
-      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::Completed, ClassificationStatus::Completed);
-    }
+    $this->getLogger()->info(strtr('Classification successful for @bundle_label @entity_id.', [
+      '@bundle_label' => $bundle_label,
+      '@entity_id' => $entity->id(),
+    ]));
+
+    // Mark the entity as processed.
+    $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::Completed, ClassificationStatus::Completed, $updated_fields);
   }
 
   /**
@@ -330,12 +331,15 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   A message (ex: error).
    * @param \Drupal\ocha_content_classification\enum\ClassificationStatus $status
    *   The classification status (queued, processed or failed).
+   * @param ?array $updated_fields
+   *   List of updated fields during the classification.
    */
   protected function updateClassificationStatus(
     ContentEntityInterface $entity,
     ClassificationWorkflowInterface $workflow,
     ClassificationMessage $message,
     ClassificationStatus $status,
+    ?array $updated_fields = NULL,
   ): void {
     $existing_record = $workflow->getClassificationProgress($entity);
     $existing_status = $existing_record['status'] ?? NULL;
@@ -348,7 +352,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
 
     // Update the classification progress record with the new status and
     // message.
-    $workflow->updateClassificationProgress($entity, $message, $status);
+    $workflow->updateClassificationProgress($entity, $message, $status, updated_fields: $updated_fields);
   }
 
   /**
