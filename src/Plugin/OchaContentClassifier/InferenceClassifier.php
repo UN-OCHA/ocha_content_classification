@@ -1016,7 +1016,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       }
 
       // Store the new field values.
-      $updated_fields['fillable'][$field_name] = [$property => $content];
+      $updated_fields['fillable'][$field_name][$property] = $content;
     }
 
     // Update the entity.
