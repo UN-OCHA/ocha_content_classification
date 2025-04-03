@@ -694,7 +694,7 @@ class InferenceClassifier extends ClassifierPluginBase {
 
     if ($field_storage->isBaseField()) {
       $entity_type = $this->entityTypeManager->getDefinition($entity_type_id);
-      $table = $entity_type->getBaseTable();
+      $table = $entity_type->getDataTable();
       $field = $property;
       $id_field = $entity_type->getKey('id');
       $bundle_field = $entity_type->getKey('bundle');
