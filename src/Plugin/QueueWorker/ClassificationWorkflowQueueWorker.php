@@ -352,7 +352,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     // Save the changes to the entity if the classification status changed, for
     // example from queued to processed.
     if ($existing_status !== $status) {
-      $this->saveEntity($entity, $message, $existing_record['user_id'] ?? NULL);
+      $this->saveEntity($entity, $message, $status, $existing_record['user_id'] ?? NULL);
     }
 
     // Update the classification progress record with the new status and
@@ -369,10 +369,22 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   Entity.
    * @param \Drupal\ocha_content_classification\enum\ClassificationMessage $message
    *   Revision message.
+   * @param \Drupal\ocha_content_classification\enum\ClassificationStatus $status
+   *   The classification status (queued, processed or failed).
    * @param ?int $user_id
    *   The ID of the user who initiated the classification.
    */
-  protected function saveEntity(ContentEntityInterface $entity, ClassificationMessage $message, ?int $user_id = NULL): void {
+  protected function saveEntity(
+    ContentEntityInterface $entity,
+    ClassificationMessage $message,
+    ClassificationStatus $status,
+    ?int $user_id = NULL,
+  ): void {
+    // Add a flag to indicate the classification proceeded, with its status.
+    // This is to allow other modules to act on an entity being updated after
+    // the automated classification.
+    $entity->ocha_content_classification_status = $status;
+
     if ($entity instanceof RevisionLogInterface) {
       // If there is a user ID (and it's not anonymous = 0), use it as revision
       // user ID, otherwise let Drupal chose (previous revision user, owner or
