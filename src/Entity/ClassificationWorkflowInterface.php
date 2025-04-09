@@ -523,4 +523,13 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    */
   public function deleteClassificationProgress(ContentEntityInterface $entity): void;
 
+  /**
+   * Get the permissions for the workflow.
+   *
+   * @return array
+   *   Associative array with `apply`, `bypass` and `requeue` permissions. Each
+   *   permission has an `id`, `title` and `description`.
+   */
+  public function getWorkflowPermissions(): array;
+
 }

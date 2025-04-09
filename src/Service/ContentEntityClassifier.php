@@ -160,14 +160,14 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     // again.
     $this->handleEntityBeingReverted($entity);
 
-    // Check the permission to use the automated classification.
-    if (!$this->checkUserPermissions($entity)) {
-      return;
-    }
-
     // Skip if there is no enabled workflow to process this entity.
     $workflow = $this->getWorkflowForEntity($entity);
     if (empty($workflow)) {
+      return;
+    }
+
+    // Check the permission to use the automated classification.
+    if (!$this->checkUserPermissions($entity, $workflow)) {
       return;
     }
 
@@ -230,14 +230,14 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    // Check the permission to use the automated classification.
-    if (!$this->checkUserPermissions($entity)) {
-      return;
-    }
-
     // Skip if there is no enabled workflow to process this entity.
     $workflow = $this->getWorkflowForEntity($entity);
     if (empty($workflow)) {
+      return;
+    }
+
+    // Check the permission to use the automated classification.
+    if (!$this->checkUserPermissions($entity, $workflow)) {
       return;
     }
 
@@ -289,14 +289,14 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    // Check the permission to use the automated classification.
-    if (!$this->checkUserPermissions($entity)) {
-      return;
-    }
-
     // Skip if there is no enabled workflow to process this entity.
     $workflow = $this->getWorkflowForEntity($entity);
     if (empty($workflow)) {
+      return;
+    }
+
+    // Check the permission to use the automated classification.
+    if (!$this->checkUserPermissions($entity, $workflow)) {
       return;
     }
 
@@ -554,11 +554,13 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity to potentially classify.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   Classification workflow.
    *
    * @return bool
    *   TRUE if the user is allowed to use the automated classification.
    */
-  protected function checkUserPermissions(EntityInterface $entity): bool {
+  protected function checkUserPermissions(EntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
     // We need to check the revision user if defined.
     $account = $this->currentUser;
     if (!$entity->isNew()) {
@@ -576,7 +578,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
 
     // Let other modules decide if we should check the user permissions.
     $check_permissions = TRUE;
-    $check_permissions_context = ['entity' => $entity];
+    $check_permissions_context = ['workflow' => $workflow, 'entity' => $entity];
     $this->moduleHandler->alter(
       'ocha_content_classification_user_permission_check',
       $check_permissions,
@@ -587,13 +589,15 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return TRUE;
     }
 
+    $workflow_permissions = $workflow->getWorkflowPermissions();
+
     // Skip if the user is not allowed to use the automated classification.
-    if (!$account->hasPermission('apply ocha content classification')) {
+    if (!$account->hasPermission($workflow_permissions['apply']['id'])) {
       return FALSE;
     }
 
     // Skip if the user can bypass the automated classification.
-    if ($account->hasPermission('bypass ocha content classification')) {
+    if ($account->hasPermission($workflow_permissions['bypass']['id'])) {
       return FALSE;
     }
 

@@ -41,10 +41,6 @@ class ClassificationRequeueAccessCheck implements AccessInterface {
    *   The access result.
    */
   public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
-    if (!$account->hasPermission('requeue entity for ocha content classification')) {
-      return AccessResult::forbidden();
-    }
-
     $entity_type_id = $route_match->getRouteObject()->getDefault('entity_type');
     if (empty($entity_type_id)) {
       return AccessResult::forbidden();
@@ -55,8 +51,18 @@ class ClassificationRequeueAccessCheck implements AccessInterface {
       return AccessResult::forbidden();
     }
 
+    $workflow = $this->contentEntityClassifier->getWorkflowForEntity($entity);
+    if (empty($workflow)) {
+      return AccessResult::forbidden();
+    }
+
+    $workflow_permissions = $workflow->getWorkflowPermissions();
+    if (!$account->hasPermission($workflow_permissions['requeue']['id'])) {
+      return AccessResult::forbidden();
+    }
+
     // Check if the entity can be classified. Since this is to show the
-    // requeue operation, we instruct to skip the classification status so
+    // requeue operation, we skip the classification status check so
     // we can force a requeue if the entity is, otherwise, classifiable.
     if ($this->contentEntityClassifier->isEntityClassifiable($entity, FALSE)) {
       return AccessResult::allowed();

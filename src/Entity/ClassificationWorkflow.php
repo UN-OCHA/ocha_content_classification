@@ -8,6 +8,7 @@ use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\ocha_content_classification\Enum\ClassificationMessage;
 use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
@@ -68,6 +69,8 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  * )
  */
 class ClassificationWorkflow extends ConfigEntityBase implements ClassificationWorkflowInterface {
+
+  use StringTranslationTrait;
 
   /**
    * The Classification Workflow ID.
@@ -700,6 +703,35 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       ->condition('entity_bundle', $entity->bundle())
       ->condition('entity_id', $entity->id())
       ->execute();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getWorkflowPermissions(): array {
+    $arguments = ['@workflow' => $this->label()];
+    $entity_type_id = $this->getTargetEntityTypeId();
+    $bundle = $this->getTargetBundle();
+
+    $permissions = [
+      'apply' => [
+        'id' => "apply ocha content classification to $entity_type_id $bundle",
+        'title' => $this->t('Apply content classification to @workflow', $arguments),
+        'description' => $this->t('Allow users to have their @workflow automatically classified.', $arguments),
+      ],
+      'bypass' => [
+        'id' => "bypass ocha content classification for $entity_type_id $bundle",
+        'title' => $this->t('Bypass content classification for @workflow', $arguments),
+        'description' => $this->t('Allow users to skip the automated classification when submitting @workflow.', $arguments),
+      ],
+      'requeue' => [
+        'id' => "requeue $entity_type_id $bundle for ocha content classification",
+        'title' => $this->t('Requeue @workflow for content classification', $arguments),
+        'description' => $this->t('Allow users to resubmit @workflow for automated classification.', $arguments),
+      ],
+    ];
+
+    return $permissions;
   }
 
   /**
