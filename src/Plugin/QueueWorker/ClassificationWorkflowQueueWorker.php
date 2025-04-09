@@ -17,6 +17,7 @@ use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
 use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\ClassificationSkippedException;
 use Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException;
 use Drupal\ocha_content_classification\Exception\UnexpectedValueException;
 use Drupal\ocha_content_classification\Exception\UnsupportedEntityException;
@@ -113,6 +114,10 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     }
     // Skip and remove the entity from the queue if unsupported.
     catch (UnsupportedEntityException $exception) {
+      $this->getLogger()->error($exception->getMessage());
+    }
+    // Skip and remove the entity from the queue if it should not be classified.
+    catch (ClassificationSkippedException $exception) {
       $this->getLogger()->error($exception->getMessage());
     }
     // Skip and remove the entity from the queue if already completed.

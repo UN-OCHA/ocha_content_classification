@@ -7,6 +7,7 @@ namespace Drupal\ocha_content_classification\Entity;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\ocha_content_classification\Enum\ClassificationMessage;
@@ -14,6 +15,7 @@ use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
 use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\ClassificationSkippedException;
 use Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException;
 use Drupal\ocha_content_classification\Exception\UnsupportedEntityException;
 use Drupal\ocha_content_classification\Exception\WorkflowNotEnabledException;
@@ -141,6 +143,13 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    * @var \Drupal\Core\Database\Connection
    */
   protected Connection $database;
+
+  /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected ModuleHandlerInterface $moduleHandler;
 
   /**
    * The current user.
@@ -510,6 +519,23 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $status = $existing_record['status'] ?? '';
     $attempts = $existing_record['attempts'] ?? 0;
 
+    // Allow modules to indicate the classification of the given entity should
+    // be skipped.
+    $skip_classification = FALSE;
+    $skip_classification_context = ['entity' => $entity];
+    $this->getModuleHandler()->alter(
+      'ocha_content_classification_skip_classification',
+      $skip_classification,
+      $workflow,
+      $skip_classification_context,
+    );
+    if ($skip_classification === TRUE) {
+      throw new ClassificationSkippedException(strtr('Classification skipped for @bundle_label @id.', [
+        '@bundle_label' => $bundle_label,
+        '@id' => $entity->id(),
+      ]));
+    }
+
     // Skip if the classification is marked as completed.
     if ($check_status && $status === ClassificationStatus::Completed) {
       throw new ClassificationCompletedException(strtr('Classification already completed for @bundle_label @id.', [
@@ -545,10 +571,10 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       // Allow modules to determine which fields should be check to determine
       // if the automated classification is allowed.
       $fields_to_check_context = ['entity' => $entity];
-      $this->moduleHandler->alter(
+      $this->getModuleHandler()->alter(
         'ocha_content_classification_specified_field_check',
         $fields_to_check,
-        $workflow,
+        $this,
         $fields_to_check_context,
       );
 
@@ -758,6 +784,19 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       $this->database = \Drupal::database();
     }
     return $this->database;
+  }
+
+  /**
+   * Get the module handler.
+   *
+   * @return \Drupal\Core\Extension\ModuleHandlerInterface
+   *   The module handler.
+   */
+  protected function getModuleHandler(): ModuleHandlerInterface {
+    if (!isset($this->moduleHandler)) {
+      $this->moduleHandler = \Drupal::moduleHandler();
+    }
+    return $this->moduleHandler;
   }
 
   /**

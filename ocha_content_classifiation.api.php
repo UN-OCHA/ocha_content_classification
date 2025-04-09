@@ -61,6 +61,31 @@ function hook_ocha_content_classification_post_classify_entity(
 }
 
 /**
+ * Alter the skip classification flag.
+ *
+ * This allows to bypass the check on the emptiness of a classifiable or
+ * fillable field when determining if the classification should proceed.
+ *
+ * @param bool $skip_classification
+ *   Flag to indicate whether the classification should be skipped or not.
+ * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+ *   The workflow being used for classification.
+ * @param array $context
+ *   An array containing contextual information:
+ *   - entity: The entity being classified.
+ */
+function hook_ocha_content_classification_skip_classification_alter(
+  bool &$skip_classification,
+  ClassificationWorkflowInterface $workflow,
+  array $context,
+) {
+  // Disable the check on "some_field".
+  if ($context['entity']->bundle() == 'something') {
+    $skip_classification = TRUE;
+  }
+}
+
+/**
  * Alter the fields to check to proceed with the classification.
  *
  * This allows to bypass the check on the emptiness of a classifiable or
@@ -161,6 +186,7 @@ function hook_ocha_content_classification_force_field_update_alter(
  *   The user account for which to check permissions.
  * @param array $context
  *   An array containing contextual information:
+ *   - workflow: The classification workflow.
  *   - entity: The entity being classified.
  */
 function hook_ocha_content_classification_user_permission_check_alter(

@@ -20,6 +20,7 @@ use Drupal\ocha_content_classification\Enum\ClassificationMessage;
 use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\ClassificationSkippedException;
 use Drupal\ocha_content_classification\Helper\EntityHelper;
 use Drupal\user\EntityOwnerInterface;
 use Psr\Log\LoggerInterface;
@@ -308,7 +309,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     try {
       $workflow->validateEntity($entity);
     }
-    catch (ClassificationCompletedException | ClassificationFailedException $exception) {
+    catch (ClassificationSkippedException | ClassificationCompletedException | ClassificationFailedException $exception) {
       // Nothing to do, those are valid exceptions and we hide the fields
       // regardless.
     }
@@ -468,7 +469,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
 
     $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
 
-    // Get the queue corresponding to the worflow ('base_id:derivative_id').
+    // Get the queue corresponding to the workflow ('base_id:derivative_id').
     $queue_name = 'ocha_classification_workflow:' . $workflow->id();
 
     $item = [
