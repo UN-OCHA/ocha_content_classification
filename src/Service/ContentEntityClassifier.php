@@ -179,9 +179,11 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     }
 
     // Temporary make mandatory fields non-mandatory.
-    foreach ($workflow->getEnabledClassifiableFields() as $field_name => $field_info) {
+    foreach ($workflow->getEnabledFields(['classifiable', 'fillable']) as $field_name => $field_info) {
+      $type = $field_info['type'] ?? '';
+
       // Non mandatory field.
-      if (empty($field_info['min'])) {
+      if ($type === 'classifiable' && empty($field_info['min'])) {
         continue;
       }
 
