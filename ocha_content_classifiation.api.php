@@ -17,6 +17,33 @@ use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface;
 
 /**
+ * Alter the list of fields populated by the classifier.
+ *
+ * @param array $classified_fields
+ *   The list of fields that the classifier handled, keyed by type:
+ *   classifiable or fillable with the list of fields keyed by field names
+ *   as values.
+ * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+ *   The workflow used for classification.
+ * @param array $context
+ *   An array containing contextual information:
+ *   - entity: the entity being classified
+ *   - classifier: the classifier plugin
+ *   - data: the raw data used by the classifier (depends on the classifier).
+ */
+function hook_ocha_content_classification_classified_fields_alter(
+  array &$classified_fields,
+  ClassificationWorkflowInterface $workflow,
+  array $context,
+) {
+  $entity = $context['entity'];
+  if ($entity->getEntityTypeId() === 'node' && $entity->bundle() === 'something') {
+    // Do not update the body field for this type of node.
+    unset($classified_fields['fillable']['body']);
+  }
+}
+
+/**
  * Respond to entity classification completion.
  *
  * This hook is invoked after an entity has been classified, allowing modules
@@ -33,9 +60,8 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface;
  * @param array $data
  *   Data used for the classification. This depends on the classifier.
  *
- * @return bool
- *   Return TRUE to indicate that the module made changes that should be
- *   considered as an update to the entity.
+ * @return array
+ *   List of entity fields modified in the hook.
  */
 function hook_ocha_content_classification_post_classify_entity(
   EntityInterface $entity,

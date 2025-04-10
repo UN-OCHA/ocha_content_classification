@@ -69,8 +69,6 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   The config factory service.
    * @param \Drupal\Core\Logger\LoggerChannelFactoryInterface $loggerFactory
    *   The logger factory service.
-   * @param \Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface $completionPluginManager
-   *   The completion plugin manager.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   The entity type manager service.
    * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entityFieldManager
@@ -81,6 +79,8 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   The module handler.
    * @param \Drupal\ocha_content_classification\Plugin\AnalyzableFieldProcessorPluginManagerInterface $analyzableFieldProcessorPluginManager
    *   The analyzable field processor plugin manager.
+   * @param \Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface $completionPluginManager
+   *   The completion plugin manager.
    */
   public function __construct(
     array $configuration,
@@ -88,12 +88,12 @@ class InferenceClassifier extends ClassifierPluginBase {
     $plugin_definition,
     protected ConfigFactoryInterface $configFactory,
     protected LoggerChannelFactoryInterface $loggerFactory,
-    protected CompletionPluginManagerInterface $completionPluginManager,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected EntityFieldManagerInterface $entityFieldManager,
     protected Connection $database,
     protected ModuleHandlerInterface $moduleHandler,
     protected AnalyzableFieldProcessorPluginManagerInterface $analyzableFieldProcessorPluginManager,
+    protected CompletionPluginManagerInterface $completionPluginManager,
   ) {
     parent::__construct(
       $configuration,
@@ -101,6 +101,11 @@ class InferenceClassifier extends ClassifierPluginBase {
       $plugin_definition,
       $configFactory,
       $loggerFactory,
+      $entityTypeManager,
+      $entityFieldManager,
+      $database,
+      $moduleHandler,
+      $analyzableFieldProcessorPluginManager,
     );
   }
 
@@ -114,12 +119,12 @@ class InferenceClassifier extends ClassifierPluginBase {
       $plugin_definition,
       $container->get('config.factory'),
       $container->get('logger.factory'),
-      $container->get('plugin.manager.ocha_ai.completion'),
       $container->get('entity_type.manager'),
       $container->get('entity_field.manager'),
       $container->get('database'),
       $container->get('module_handler'),
       $container->get('plugin.manager.ocha_content_classification.analyzable_field_processor'),
+      $container->get('plugin.manager.ocha_ai.completion'),
     );
   }
 
@@ -891,7 +896,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     array $list_prefixes,
   ): ?array {
     // Parse the output and update the term fields.
-    $updated_fields = [];
+    $classified_fields = [];
 
     // Get the list of fields that are marked for a forced update if they are
     // already populated.
@@ -964,7 +969,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       }
 
       // Store the new field values.
-      $updated_fields['classifiable'][$field_name] = $term_ids;
+      $classified_fields['classifiable'][$field_name] = $term_ids;
     }
 
     // Process the fillable fields.
@@ -1016,46 +1021,16 @@ class InferenceClassifier extends ClassifierPluginBase {
       }
 
       // Store the new field values.
-      $updated_fields['fillable'][$field_name][$property] = $content;
+      $classified_fields['fillable'][$field_name][$property] = $content;
     }
 
-    // Update the entity.
-    $entity_updated_fields = [];
-    foreach ($updated_fields as $type => $field_list) {
-      foreach ($field_list as $field_name => $values) {
-        // Classifiable fields are taxonomy term fields, we can simply pass
-        // the new list of term IDs to update the field.
-        if ($type === 'classifiable') {
-          $entity->set($field_name, $values);
-        }
-        // For fillable fields, we only want to update the enabled properties.
-        elseif ($type === 'fillable') {
-          $field_item = $entity->get($field_name)->first() ??
-            $entity->get($field_name)->appendItem()->applyDefaultValue(FALSE);
-          // @todo find a better way than this workaround for the body field...
-          if ($field_name === 'body' && empty($field_item->value) && !isset($values['value'])) {
-            $field_item->set('value', '');
-          }
-          foreach ($values as $property => $value) {
-            $field_item->set($property, $value);
-          }
-        }
-        $entity_updated_fields[] = $field_name;
-      }
-    }
-
-    // Allow other modules to do something with the result.
-    $hook_entity_updated_fields = $this->moduleHandler->invokeAll(
-      'ocha_content_classification_post_classify_entity',
-      [$entity, $workflow, $this, $entity_updated_fields, ['output' => $output]]
-    ) ?? [];
-
-    $entity_updated_fields = array_unique(array_merge(
-      $entity_updated_fields,
-      $hook_entity_updated_fields,
-    ));
-
-    return $entity_updated_fields;
+    return $this->updateEntity(
+      $entity,
+      $workflow,
+      $this,
+      $classified_fields,
+      ['output' => $output],
+    );
   }
 
   /**
