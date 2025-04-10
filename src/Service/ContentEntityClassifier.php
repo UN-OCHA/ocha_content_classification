@@ -445,12 +445,27 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return FALSE;
     }
 
+    $record = $workflow->getClassificationProgress($entity);
+
     // If there is a progress record then it means the entity is already queued,
     // has been processed or the classification failed. In any case we don't
     // need to add back the entity to the queue because the life cycle of the
-    // item in the queue is managed by the queue wroker. It is in charge of
+    // item in the queue is managed by the queue worker. It is in charge of
     // keeping items in the queue if they haven't yet been processed properly.
-    return $workflow->getClassificationProgress($entity) === NULL;
+    $can_be_queued = $record === NULL;
+
+    // If the entity can be queued or is already queued, store a flag on the
+    // entity so that other modules can act based on the current classification
+    // status.
+    if ($can_be_queued || $record['status'] === ClassificationStatus::Queued) {
+      // Only set the status if not already set.
+      // @see \Drupal\ocha_content_classification\Plugin\QueueWorker\ClassificationWorkflowQueueWorker::saveEntity()
+      if (!isset($entity->ocha_content_classification_status)) {
+        $entity->ocha_content_classification_status = ClassificationStatus::Queued;
+      }
+    }
+
+    return $can_be_queued;
   }
 
   /**
