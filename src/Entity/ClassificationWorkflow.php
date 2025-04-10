@@ -64,6 +64,7 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  *     "label",
  *     "status",
  *     "limit",
+ *     "validation",
  *     "target",
  *     "fields",
  *     "classifier"
