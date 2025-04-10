@@ -90,7 +90,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
   /**
    * {@inheritdoc}
    */
-  public function getWorkflowForEntity(EntityInterface $entity): ?ClassificationWorkflowInterface {
+  public function getWorkflowForEntity(EntityInterface $entity, bool $check_enabled = TRUE): ?ClassificationWorkflowInterface {
     if (!($entity instanceof ContentEntityInterface)) {
       return NULL;
     }
@@ -113,7 +113,11 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
 
     $workflow = $this->workflows[$entity_type_id][$bundle] ?? FALSE;
 
-    return $workflow ?: NULL;
+    if (!empty($workflow)) {
+      return !$check_enabled || $workflow->enabled() ? $workflow : NULL;
+    }
+
+    return NULL;
   }
 
   /**
@@ -268,7 +272,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    $workflow = $this->getWorkflowForEntity($entity);
+    $workflow = $this->getWorkflowForEntity($entity, FALSE);
     if (empty($workflow)) {
       return;
     }
@@ -432,6 +436,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    *
    * @return bool
    *   TRUE if the entity is already queued or has been processed.
+   *
+   * @todo add a hook so we can let other modules force requeueing?
    */
   protected function canEntityBeQueued(EntityInterface $entity): bool {
     $workflow = $this->getWorkflowForEntity($entity);
