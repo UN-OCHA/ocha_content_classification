@@ -13,6 +13,7 @@
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
+use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginInterface;
 
 /**
@@ -202,5 +203,32 @@ function hook_ocha_content_classification_user_permission_check_alter(
   // Example: Bypass permission checks for a specific entity type.
   if ($context['entity']->getEntityTypeId() == 'taxonomy_term') {
     $check_permissions = FALSE;
+  }
+}
+
+/**
+ * Allow other module to act before the ocha content classification module.
+ *
+ * Called at the beginning of the ocha_content_classification_entity_presave().
+ * This can be used to force the requeueing of the entity for example.
+ */
+function hook_ocha_content_classification_pre_entity_presave(EntityInterface $entity) {
+  if (!$entity->field_something->equals($entity->original->field_something)) {
+    \Drupal::service('ocha_content_classification.content_entity_classifier')
+      ->requeueEntity($entity);
+  }
+}
+
+/**
+ * Allow other module to act after the ocha content classification module.
+ *
+ * This is called at the end of the ocha_content_classification_entity_presave()
+ * which may have added a `ocha_content_classification_status` flag on the
+ * entity that can be used to determine if the classification is still pending,
+ * has failed or has completed.
+ */
+function hook_ocha_content_classification_post_entity_presave(EntityInterface $entity) {
+  if (isset($entity->ocha_content_classification_status) && $entity->ocha_content_classification_status === ClassificationStatus::Failed) {
+    $entity->setRevisionLogMessage('Oh no!');
   }
 }
