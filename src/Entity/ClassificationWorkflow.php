@@ -526,7 +526,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $this->getModuleHandler()->alter(
       'ocha_content_classification_skip_classification',
       $skip_classification,
-      $workflow,
+      $this,
       $skip_classification_context,
     );
     if ($skip_classification === TRUE) {
