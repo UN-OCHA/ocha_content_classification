@@ -47,6 +47,17 @@ interface AnalyzableFieldProcessorPluginInterface {
   public function toFiles(string $placeholder, FieldItemListInterface $field): array;
 
   /**
+   * Filter out the field values based on the supported file types.
+   *
+   * @param \Drupal\Core\Field\FieldItemListInterface $field
+   *   The entity field to process.
+   * @param array $supported_file_types
+   *   The list of supported file types as an associative array with the mime
+   *   type as keys and the max file size as values.
+   */
+  public function filterFiles(FieldItemListInterface $field, array $supported_file_types): void;
+
+  /**
    * Check if the plugin supports the given field.
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition

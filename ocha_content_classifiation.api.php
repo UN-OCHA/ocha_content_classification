@@ -258,3 +258,54 @@ function hook_ocha_content_classification_post_entity_presave(EntityInterface $e
     $entity->setRevisionLogMessage('Oh no!');
   }
 }
+
+/**
+ * Modify the entity being prepare for the classification.
+ *
+ * This can be used to modify the fields to analyze for the classification.
+ *
+ * @param \Drupal\Core\Entity\EntityInterface $prepared_entity
+ *   Entity being prepare for classification. This is a clone of the entity
+ *   being classified and can be safely modified.
+ * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+ *   The workflow being used for classification.
+ * @param array $context
+ *   An array containing contextual information:
+ *   - entity: The original entity being classified
+ *   - classifier: The classifier plugin.
+ */
+function hook_ocha_content_classification_prepare_entity_alter(
+  EntityInterface &$prepared_entity,
+  ClassificationWorkflowInterface $workflow,
+  array $context,
+) {
+  $context['entity']->get('somefield')->filter(function ($item) {
+    return $item->value !== 'something that cannot be analyzed';
+  });
+}
+
+/**
+ * Perform extra validation on the entity being classified.
+ *
+ * This allows to perform additional validation of the entity before performing
+ * the actual classification. If the entity data is considered invalid, then the
+ * classification will be marked has failed.
+ *
+ * @param bool $invalid
+ *   Flag to indicate whether the entity is valid or not for the classification.
+ * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+ *   The workflow being used for classification.
+ * @param array $context
+ *   An array containing contextual information:
+ *   - entity: The entity being classified
+ *   - classifier: The classifier plugin.
+ */
+function hook_ocha_content_classification_validate_entity_data_alter(
+  bool &$invalid,
+  ClassificationWorkflowInterface $workflow,
+  array $context,
+) {
+  if ($context['entity']->get('somefield')->value === 'some invalid value') {
+    $invalid = TRUE;
+  }
+}

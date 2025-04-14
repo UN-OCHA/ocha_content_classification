@@ -49,4 +49,19 @@ class ReliefWebAttachmentProcessor extends AnalyzableFieldProcessorPluginBase {
     return $files;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function filterFiles(FieldItemListInterface $field, array $supported_file_types): void {
+    // Filter out files that are not supported or are too large.
+    $field->filter(function ($item) use ($supported_file_types) {
+      $file_mime = $item->getFileMime();
+      $file_size = $item->getFileSize();
+
+      // Only keep the file if it supported and below the max allowed file
+      // size.
+      return isset($supported_file_types[$file_mime]) && $file_size < $supported_file_types[$file_mime];
+    });
+  }
+
 }

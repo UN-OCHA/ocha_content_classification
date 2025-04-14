@@ -170,4 +170,53 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
     return $entity_updated_fields;
   }
 
+  /**
+   * Prepare an entity for classification.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   Entity to classify.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification workflow.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface
+   *   Prepared entity.
+   */
+  protected function prepareEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): ContentEntityInterface {
+    $prepared_entity = clone $entity;
+
+    // Allow other modules to alter the entity to prepare.
+    $context = [
+      'entity' => $entity,
+      'classifier' => $this,
+    ];
+    $this->moduleHandler->alter(
+      'ocha_content_classification_prepare_entity',
+      $prepared_entity,
+      $workflow,
+      $context,
+    );
+
+    return $prepared_entity;
+  }
+
+  /**
+   * Check if that the entity has the data necessary for the classification.
+   *
+   * Note: this is called before the actual classification.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   Entity to classify.
+   * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+   *   The classification workflow.
+   *
+   * @return bool
+   *   TRUE if the entity can be processed.
+   *
+   * @throws \Drupal\ocha_content_classification\Exception\ClassificationFailedException
+   *   If the entity doesn't have the data necessary for the classification.
+   */
+  protected function validateEntityData(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
+    return TRUE;
+  }
+
 }

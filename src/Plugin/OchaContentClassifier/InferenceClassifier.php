@@ -18,6 +18,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
+use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
 use Drupal\ocha_content_classification\Exception\ClassifierPluginException;
 use Drupal\ocha_content_classification\Exception\InvalidConfigurationException;
 use Drupal\ocha_content_classification\Exception\UnexpectedValueException;
@@ -789,6 +790,74 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  protected function prepareEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): ContentEntityInterface {
+    $prepared_entity = parent::prepareEntity($entity, $workflow);
+
+    // Retrieve the AI plugin.
+    $ai_plugin_id = $this->getPluginSetting('inference.plugin_id');
+    $ai_plugin = $this->completionPluginManager->getPlugin($ai_plugin_id);
+    $supported_file_types = $ai_plugin->getSupportedFileTypes();
+
+    // Filter analyzable fields that are to be passed as files.
+    $analyzable_fields = $this->getEnabledFields('analyzable');
+    foreach ($analyzable_fields as $field_name => $field_info) {
+      if (empty($field_info['file']) || empty($field_info['processor'])) {
+        continue;
+      }
+
+      if (!$prepared_entity->hasField($field_name) || $prepared_entity->get($field_name)->isEmpty()) {
+        continue;
+      }
+
+      // Filter out files that are not supported or too large.
+      $processor_plugin = $this->analyzableFieldProcessorPluginManager->createInstance($field_info['processor']);
+      $processor_plugin->filterFiles($prepared_entity->get($field_name), $supported_file_types);
+    }
+
+    return $prepared_entity;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateEntityData(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
+    $invalid = FALSE;
+
+    // Get a list of the missing analyzable data.
+    $analyzable_fields = $this->getEnabledFields('analyzable');
+    $empty_fields = [];
+    foreach ($analyzable_fields as $field_name => $field_info) {
+      if (!$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
+        $empty_fields[$field_name] = TRUE;
+      }
+    }
+
+    // Basic invalidity is that there is no data to analyze.
+    $invalid = count($empty_fields) === count($analyzable_fields);
+
+    if (!$invalid) {
+      // Allow other module to do their own validation of the data.
+      $context = ['entity' => $entity, 'classifier' => $this];
+      $this->moduleHandler->alter(
+        'ocha_content_classification_validate_entity_data',
+        $invalid,
+        $workflow,
+        $context,
+      );
+    }
+
+    if ($invalid) {
+      throw new ClassificationFailedException(strtr('No valid data for classification for @bundle_label @entity_id', [
+        '@bundle_label' => EntityHelper::getBundleLabelFromEntity($entity),
+        '@entity_id' => $entity->id(),
+      ]));
+    }
+    return TRUE;
+  }
+
+  /**
    * Query the AI model.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
@@ -840,11 +909,17 @@ class InferenceClassifier extends ClassifierPluginBase {
     // the values selected by the AI.
     $list_prefixes = [];
 
+    // Prepare the entity for classification.
+    $prepared_entity = $this->prepareEntity($entity, $workflow);
+
+    // Validate the entity data to ensure it's usable for the classification.
+    $this->validateEntityData($prepared_entity, $workflow);
+
     // Prepare the text prompt to pass to the LLM.
-    $prompt = $this->preparePrompt($prompt, $entity, $fields, $list_prefixes);
+    $prompt = $this->preparePrompt($prompt, $prepared_entity, $fields, $list_prefixes);
 
     // Prepare any extra files to pass to the LLM.
-    $files = $this->prepareFiles($entity, $fields);
+    $files = $this->prepareFiles($prepared_entity, $fields);
 
     // Retrieve the model parameters.
     $parameters = [
@@ -1537,7 +1612,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    * Get the enabled (with a placeholders) analyzable or classifiable fields.
    *
    * @param string $type
-   *   Either 'analyzable' or 'classifiable'.
+   *   Either 'analyzable', 'classifiable' or 'fillable'.
    *
    * @return array<string,mixed>
    *   Associative array of fields and their settings keyed by field names.
@@ -1545,7 +1620,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   Exception if the fields settings could not be retrieved.
    */
-  protected function getEnabledFields(string $type): array {
+  public function getEnabledFields(string $type): array {
     $fields = $this->getPluginSetting($type . '.fields');
     return array_filter($fields, fn($settings) => !empty($settings['placeholder']));
   }

@@ -69,4 +69,28 @@ class StripAndTrimProcessor extends AnalyzableFieldProcessorPluginBase {
     return $files;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function filterFiles(FieldItemListInterface $field, array $supported_file_types): void {
+    $field->filter(function ($item) use ($supported_file_types) {
+      $data = $item->getString();
+      if (empty($data)) {
+        return FALSE;
+      }
+
+      $mimetype = 'text/plain';
+      if (isset($item->format)) {
+        if (stripos($item->format, 'markdown') !== FALSE) {
+          $mimetype = 'text/markdown';
+        }
+        elseif (stripos($item->format, 'html') !== FALSE) {
+          $mimetype = 'text/html';
+        }
+      }
+
+      return isset($supported_file_types[$mimetype]) && strlen($data) < $supported_file_types[$mimetype];
+    });
+  }
+
 }
