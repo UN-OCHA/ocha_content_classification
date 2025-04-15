@@ -17,6 +17,7 @@ use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
 use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\ClassificationSkippedException;
 use Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException;
 use Drupal\ocha_content_classification\Exception\UnexpectedValueException;
 use Drupal\ocha_content_classification\Exception\UnsupportedEntityException;
@@ -115,6 +116,10 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     catch (UnsupportedEntityException $exception) {
       $this->getLogger()->error($exception->getMessage());
     }
+    // Skip and remove the entity from the queue if it should not be classified.
+    catch (ClassificationSkippedException $exception) {
+      $this->getLogger()->error($exception->getMessage());
+    }
     // Skip and remove the entity from the queue if already completed.
     catch (ClassificationCompletedException $exception) {
       $this->handleClassificationCompletedException($entity, $workflow, $exception);
@@ -159,18 +164,19 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   An exception if the classification didn't go as expected.
    */
   protected function classifyEntity(ContentEntityInterface $entity, ClassificationWorkflowInterface $workflow): void {
-    // This throws an exception in case of failure and TRUE on success.
-    if ($workflow->classifyEntity($entity)) {
-      $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
+    // This throws an exception in case of failure and returns the list of the
+    // fields updated during the classification otherwise.
+    $updated_fields = $workflow->classifyEntity($entity);
 
-      $this->getLogger()->info(strtr('Classification successful for @bundle_label @entity_id.', [
-        '@bundle_label' => $bundle_label,
-        '@entity_id' => $entity->id(),
-      ]));
+    $bundle_label = EntityHelper::getBundleLabelFromEntity($entity);
 
-      // Mark the entity as processed.
-      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::COMPLETED, ClassificationStatus::COMPLETED);
-    }
+    $this->getLogger()->info(strtr('Classification successful for @bundle_label @entity_id.', [
+      '@bundle_label' => $bundle_label,
+      '@entity_id' => $entity->id(),
+    ]));
+
+    // Mark the entity as processed.
+    $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::Completed, ClassificationStatus::Completed, $updated_fields);
   }
 
   /**
@@ -196,14 +202,14 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     $this->getLogger()->notice($exception->getMessage());
 
     if ($exception instanceof FieldAlreadySpecifiedException) {
-      $message = ClassificationMessage::FIELDS_ALREADY_SPECIFIED;
+      $message = ClassificationMessage::FieldsAlreadySpecified;
     }
     else {
-      $message = ClassificationMessage::COMPLETED;
+      $message = ClassificationMessage::Completed;
     }
 
     // Ensure the classification progress record reflects the status.
-    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::COMPLETED);
+    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::Completed);
   }
 
   /**
@@ -227,14 +233,14 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     $this->getLogger()->warning($exception->getMessage());
 
     if ($exception instanceof AttemptsLimitReachedException) {
-      $message = ClassificationMessage::ATTEMPTS_LIMIT_REACHED;
+      $message = ClassificationMessage::AttemptsLimitReached;
     }
     else {
-      $message = ClassificationMessage::FAILED;
+      $message = ClassificationMessage::Failed;
     }
 
     // Ensure the classification progress record reflects the status.
-    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::FAILED);
+    $this->updateClassificationStatus($entity, $workflow, $message, ClassificationStatus::Failed);
   }
 
   /**
@@ -276,7 +282,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
         '@error' => $exception->getMessage(),
       ]));
 
-      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::ATTEMPTS_LIMIT_REACHED, ClassificationStatus::FAILED);
+      $this->updateClassificationStatus($entity, $workflow, ClassificationMessage::AttemptsLimitReached, ClassificationStatus::Failed);
     }
     // Otherwise update the progress record to increment the attempts number,
     // without creating a new revision for the entity since this is temporary.
@@ -289,7 +295,7 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
       ]));
 
       // Keep the status as queued but update the progress record attempts.
-      $workflow->updateClassificationProgress($entity, ClassificationMessage::FAILED_TEMPORARILY, ClassificationStatus::QUEUED);
+      $workflow->updateClassificationProgress($entity, ClassificationMessage::FailedTemporarily, ClassificationStatus::Queued);
 
       // Rethrow the exception to keep the item in the queue so it can be
       // processed again later on.
@@ -330,12 +336,15 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   A message (ex: error).
    * @param \Drupal\ocha_content_classification\enum\ClassificationStatus $status
    *   The classification status (queued, processed or failed).
+   * @param ?array $updated_fields
+   *   List of updated fields during the classification.
    */
   protected function updateClassificationStatus(
     ContentEntityInterface $entity,
     ClassificationWorkflowInterface $workflow,
     ClassificationMessage $message,
     ClassificationStatus $status,
+    ?array $updated_fields = NULL,
   ): void {
     $existing_record = $workflow->getClassificationProgress($entity);
     $existing_status = $existing_record['status'] ?? NULL;
@@ -343,12 +352,12 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
     // Save the changes to the entity if the classification status changed, for
     // example from queued to processed.
     if ($existing_status !== $status) {
-      $this->saveEntity($entity, $message, $existing_record['user_id'] ?? NULL);
+      $this->saveEntity($entity, $message, $status, $existing_record['user_id'] ?? NULL);
     }
 
     // Update the classification progress record with the new status and
     // message.
-    $workflow->updateClassificationProgress($entity, $message, $status);
+    $workflow->updateClassificationProgress($entity, $message, $status, updated_fields: $updated_fields);
   }
 
   /**
@@ -360,10 +369,22 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
    *   Entity.
    * @param \Drupal\ocha_content_classification\enum\ClassificationMessage $message
    *   Revision message.
+   * @param \Drupal\ocha_content_classification\enum\ClassificationStatus $status
+   *   The classification status (queued, processed or failed).
    * @param ?int $user_id
    *   The ID of the user who initiated the classification.
    */
-  protected function saveEntity(ContentEntityInterface $entity, ClassificationMessage $message, ?int $user_id = NULL): void {
+  protected function saveEntity(
+    ContentEntityInterface $entity,
+    ClassificationMessage $message,
+    ClassificationStatus $status,
+    ?int $user_id = NULL,
+  ): void {
+    // Add a flag to indicate the classification proceeded, with its status.
+    // This is to allow other modules to act on an entity being updated after
+    // the automated classification.
+    $entity->ocha_content_classification_status = $status;
+
     if ($entity instanceof RevisionLogInterface) {
       // If there is a user ID (and it's not anonymous = 0), use it as revision
       // user ID, otherwise let Drupal chose (previous revision user, owner or

@@ -74,6 +74,11 @@ function ocha_content_classification_schema() {
         'length' => 128,
         'description' => 'The ID of the classifier plugin used for classification.',
       ],
+      'updated_fields' => [
+        'type' => 'text',
+        'size' => 'normal',
+        'description' => 'Comma separated list of the fields updated by the classification workflow.',
+      ],
     ],
     'primary key' => ['entity_type_id', 'entity_bundle', 'entity_id'],
     'indexes' => [
@@ -82,4 +87,22 @@ function ocha_content_classification_schema() {
   ];
 
   return $schema;
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Add 'updated_fields' field to the classification progress table.
+ */
+function ocha_content_classification_update_10001(array &$sandbox) {
+  $schema = ocha_content_classification_schema();
+  $table = 'ocha_content_classification_progress';
+  $field = 'updated_fields';
+  if (isset($schema[$table]['fields'][$field])) {
+    $field_specifications = $schema[$table]['fields'][$field];
+    $database_schema = \Drupal::database()->schema();
+    if (!$database_schema->fieldExists($table, $field)) {
+      $database_schema->addField($table, $field, $field_specifications);
+    }
+  }
 }

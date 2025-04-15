@@ -1,15 +1,6 @@
-apply ocha content classification:
-  title: 'Apply ocha content classification'
-  description: 'Allow users to have their content submissions automatically classified.'
-
-bypass ocha content classification:
-  title: 'Bypass ocha content classifiction'
-  description: 'Allow users to ignore the automated content classification when submitting content.'
-
 administer ocha content classification workflows:
   title: 'Administer content classification workflows'
   description: 'Allow users to administer classification workflows.'
 
-requeue entity for ocha content classification:
-  title: 'Requeue Entity for OCHA Content Classification'
-  description: 'Allow users to requeue entities for content classification.'
+permission_callbacks:
+  - \Drupal\ocha_content_classification\ClassificationWorkflowPermissions::permissions

@@ -11,6 +11,13 @@ ocha_content_classification.ocha_classification_workflow.*:
     limit:
       type: integer
       label: 'Maximum number of classification attempts before failure.'
+    validation:
+      type: mapping
+      label: 'Checks to perform when validating if an entity can be classified.'
+      mapping:
+        empty:
+          type: boolean
+          label: 'Flag to indicate if the classification can proceed only when none of the classifiable or fillable field is already filled.'
     target:
       type: mapping
       label: 'Entity type and bundle this Workflow applies to.'
@@ -51,6 +58,35 @@ ocha_content_classification.ocha_classification_workflow.*:
               max:
                 type: integer
                 label: 'Maximum number of terms to include in the classification results.'
+              hide:
+                type: boolean
+                label: 'Hide field in form.'
+              force:
+                type: boolean
+                label: 'Update the field even if already filled.'
+        fillable:
+          type: sequence
+          label: 'Fillable fields.'
+          sequence:
+            type: mapping
+            label: 'List of fillable fields.'
+            mapping:
+              enabled:
+                type: boolean
+                label: 'Whether the field is enabled for content analysis or not.'
+              properties:
+                type: sequence
+                label: 'List of field properties that can be filled.'
+                sequence:
+                  type: string
+                  label: 'Field property name.'
+              hide:
+                type: boolean
+                label: 'Hide field in form.'
+              force:
+                type: boolean
+                label: 'Update the field even if already filled.'
+
     classifier:
       type: mapping
       label: 'Classifier.'
@@ -89,6 +125,9 @@ ocha_content_classification.plugin.classifier.inference:
               processor:
                 type: string
                 label: 'Processor.'
+              file:
+                type: boolean
+                label: 'Indicates if the content of the field should be passed as files to the model.'
     classifiable:
       type: mapping
       label: 'Classifiable Content.'
@@ -102,12 +141,28 @@ ocha_content_classification.plugin.classifier.inference:
               placeholder:
                 type: string
                 label: 'Placeholder to use in the prompt.'
+              property:
+                 type: string
+                 label: 'Property to use for the mapping in the prompt if there are too many terms to allow overrides.'
               terms:
                 type: sequence
                 label: 'Term overrides.'
                 sequence:
                   type: string
                   label: 'Term description.'
+    fillable:
+      type: mapping
+      label: 'Fillable Content.'
+      mapping:
+        fields:
+          type: sequence
+          label: 'Fillable field properties.'
+          sequence:
+            type: mapping
+            mapping:
+              placeholder:
+                type: string
+                label: 'Placeholder to use in the prompt.'
     inference:
       type: mapping
       label: 'Inference settings.'
@@ -124,6 +179,9 @@ ocha_content_classification.plugin.classifier.inference:
         max_tokens:
           type: integer
           label: 'Max tokens.'
+        system_prompt:
+          type: text
+          label: 'System prompt.'
         prompt:
           type: text
           label: 'Prompt.'
