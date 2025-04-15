@@ -1,4 +1,8 @@
 services:
+  plugin.manager.ocha_content_classification.analyzable_field_processor:
+    class: Drupal\ocha_content_classification\Plugin\AnalyzableFieldProcessorPluginManager
+    parent: default_plugin_manager
+
   plugin.manager.ocha_content_classification.classifier:
     class: Drupal\ocha_content_classification\Plugin\ClassifierPluginManager
     parent: default_plugin_manager
@@ -17,6 +21,7 @@ services:
       - '@current_user'
       - '@entity_type.manager'
       - '@queue'
+      - '@module_handler'
 
   ocha_content_classification.classification_requeue_access_check:
     class: Drupal\ocha_content_classification\Access\ClassificationRequeueAccessCheck

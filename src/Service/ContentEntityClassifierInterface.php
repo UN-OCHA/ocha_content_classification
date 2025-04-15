@@ -37,11 +37,13 @@ interface ContentEntityClassifierInterface {
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   Entity to classify.
+   * @param bool $check_enabled
+   *   Only return the workflow if it is enabled.
    *
    * @return ?\Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface
    *   The classification workflow if it exists and is enabled.
    */
-  public function getWorkflowForEntity(EntityInterface $entity): ?ClassificationWorkflowInterface;
+  public function getWorkflowForEntity(EntityInterface $entity, bool $check_enabled = TRUE): ?ClassificationWorkflowInterface;
 
   /**
    * Requeue an entity for classification if valid.

@@ -7,12 +7,15 @@ namespace Drupal\ocha_content_classification\Entity;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\ocha_content_classification\Enum\ClassificationMessage;
 use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 use Drupal\ocha_content_classification\Exception\AttemptsLimitReachedException;
 use Drupal\ocha_content_classification\Exception\ClassificationCompletedException;
 use Drupal\ocha_content_classification\Exception\ClassificationFailedException;
+use Drupal\ocha_content_classification\Exception\ClassificationSkippedException;
 use Drupal\ocha_content_classification\Exception\FieldAlreadySpecifiedException;
 use Drupal\ocha_content_classification\Exception\UnsupportedEntityException;
 use Drupal\ocha_content_classification\Exception\WorkflowNotEnabledException;
@@ -61,6 +64,7 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  *     "label",
  *     "status",
  *     "limit",
+ *     "validation",
  *     "target",
  *     "fields",
  *     "classifier"
@@ -69,45 +73,54 @@ use Drupal\ocha_content_classification\Plugin\ClassifierPluginManagerInterface;
  */
 class ClassificationWorkflow extends ConfigEntityBase implements ClassificationWorkflowInterface {
 
+  use StringTranslationTrait;
+
   /**
    * The Classification Workflow ID.
    *
-   * @var string
+   * @var ?string
    */
   protected ?string $id;
 
   /**
    * The Classification Workflow label.
    *
-   * @var string
+   * @var ?string
    */
   protected ?string $label;
 
   /**
    * Maximum number of attempts before failure.
    *
-   * @var int
+   * @var ?int
    */
   protected ?int $limit;
 
   /**
+   * List of validation checks to perform.
+   *
+   * @var ?array
+   */
+  protected ?array $validation;
+
+  /**
    * The workflow target settings.
    *
-   * @var array
+   * @var ?array
    */
   protected ?array $target;
 
   /**
    * The workflow fields settings.
    *
-   * @var array
+   * @var ?array
    */
   protected ?array $fields;
 
   /**
    * The workflow classifier settings.
    *
-   * @var array
+   * @var ?array
    */
   protected ?array $classifier;
 
@@ -131,6 +144,13 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
    * @var \Drupal\Core\Database\Connection
    */
   protected Connection $database;
+
+  /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected ModuleHandlerInterface $moduleHandler;
 
   /**
    * The current user.
@@ -175,6 +195,28 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   public function setAttemptsLimit(?int $limit): self {
     $this->limit = isset($limit) ? max(1, $limit) : NULL;
     return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValidationChecks(): array {
+    return $this->validation ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setValidationChecks(?array $checks): self {
+    $this->validation = array_map(fn($check) => (bool) $check, $checks ?? []);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValidationCheck(string $name): bool {
+    return !empty($this->validation[$name]);
   }
 
   /**
@@ -324,24 +366,126 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
+  public function getClassifiableFieldHide(string $field_name): bool {
+    return $this->fields['classifiable'][$field_name]['hide'] ?? TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setClassifiableFieldHide(string $field_name, bool $hide): self {
+    $this->fields['classifiable'][$field_name]['hide'] = $hide;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getClassifiableFieldForce(string $field_name): bool {
+    return $this->fields['classifiable'][$field_name]['force'] ?? FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setClassifiableFieldForce(string $field_name, bool $force): self {
+    $this->fields['classifiable'][$field_name]['force'] = $force;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isFillableFieldEnabled(string $field_name): bool {
+    return !empty($this->fields['fillable'][$field_name]['enabled']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldEnabled(string $field_name, bool $enabled): self {
+    $this->fields['fillable'][$field_name]['enabled'] = $enabled;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFillableFieldProperties(string $field_name): array {
+    return $this->fields['fillable'][$field_name]['properties'] ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldProperties(string $field_name, array $properties): self {
+    $this->fields['fillable'][$field_name]['properties'] = array_values(array_filter($properties));
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFillableFieldHide(string $field_name): bool {
+    return $this->fields['fillable'][$field_name]['hide'] ?? TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldHide(string $field_name, bool $hide): self {
+    $this->fields['fillable'][$field_name]['hide'] = $hide;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFillableFieldForce(string $field_name): bool {
+    return $this->fields['fillable'][$field_name]['force'] ?? FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFillableFieldForce(string $field_name, bool $force): self {
+    $this->fields['fillable'][$field_name]['force'] = $force;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getEnabledAnalyzableFields(): array {
-    $fields = [];
-    foreach ($this->fields['analyzable'] ?? [] as $field_name => $field_info) {
-      if (!empty($field_info['enabled'])) {
-        $fields[$field_name] = $field_info;
-      }
-    }
-    return $fields;
+    return $this->getEnabledFields(['analyzable']);
   }
 
   /**
    * {@inheritdoc}
    */
   public function getEnabledClassifiableFields(): array {
+    return $this->getEnabledFields(['classifiable']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEnabledFillableFields(): array {
+    return $this->getEnabledFields(['fillable']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEnabledFields(array $types): array {
     $fields = [];
-    foreach ($this->fields['classifiable'] ?? [] as $field_name => $field_info) {
-      if (!empty($field_info['enabled'])) {
-        $fields[$field_name] = $field_info;
+    foreach ($types as $type) {
+      foreach ($this->fields[$type] ?? [] as $field_name => $field_info) {
+        if (!empty($field_info['enabled'])) {
+          $fields[$field_name] = $field_info + [
+            'type' => $type,
+          ];
+        }
       }
     }
     return $fields;
@@ -350,11 +494,11 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function classifyEntity(ContentEntityInterface $entity): bool {
+  public function classifyEntity(ContentEntityInterface $entity): ?array {
     if ($this->validateEntity($entity)) {
-      return $this->getClassifierPlugin()?->classifyEntity($entity, $this) ?? FALSE;
+      return $this->getClassifierPlugin()?->classifyEntity($entity, $this);
     }
-    return FALSE;
+    return NULL;
   }
 
   /**
@@ -376,8 +520,25 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $status = $existing_record['status'] ?? '';
     $attempts = $existing_record['attempts'] ?? 0;
 
+    // Allow modules to indicate the classification of the given entity should
+    // be skipped.
+    $skip_classification = FALSE;
+    $skip_classification_context = ['entity' => $entity];
+    $this->getModuleHandler()->alter(
+      'ocha_content_classification_skip_classification',
+      $skip_classification,
+      $this,
+      $skip_classification_context,
+    );
+    if ($skip_classification === TRUE) {
+      throw new ClassificationSkippedException(strtr('Classification skipped for @bundle_label @id.', [
+        '@bundle_label' => $bundle_label,
+        '@id' => $entity->id(),
+      ]));
+    }
+
     // Skip if the classification is marked as completed.
-    if ($check_status && $status === ClassificationStatus::COMPLETED) {
+    if ($check_status && $status === ClassificationStatus::Completed) {
       throw new ClassificationCompletedException(strtr('Classification already completed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -385,7 +546,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     }
 
     // Skip if the classification is marked as failure.
-    if ($check_status && $status === ClassificationStatus::FAILED) {
+    if ($check_status && $status === ClassificationStatus::Failed) {
       throw new ClassificationFailedException(strtr('Classification previously failed for @bundle_label @id.', [
         '@bundle_label' => $bundle_label,
         '@id' => $entity->id(),
@@ -401,28 +562,43 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       ]));
     }
 
-    // Check if any of the classifiable field has already been specified in
-    // which case we skip the automated classification.
-    foreach (array_keys($this->getEnabledClassifiableFields()) as $field_name) {
-      // We cannot classify an entity missing fields.
-      if (!$entity->hasField($field_name)) {
-        throw new UnsupportedEntityException(strtr('@field_name missing for @bundle_label @id.', [
-          '@field_name' => $field_name,
-          '@bundle_label' => $bundle_label,
-          '@id' => $entity->id(),
-        ]));
-      }
+    // Check if any of the classifiable or fillable field has already been
+    // specified (i.e. has a value) in which case we skip the automated
+    // classification.
+    if ($this->getValidationCheck('empty')) {
+      $fields_to_check = $this->getEnabledFields(['classifiable', 'fillable']);
+      $fields_to_check = array_map(fn($field) => TRUE, $fields_to_check);
 
-      // The field is not empty, we consider the classification done.
-      // @todo review adding some settings to the workflow to control the
-      // behavior when a classifiable is already specified but other
-      // classifiable fields are not.
-      if (!$entity->get($field_name)->isEmpty()) {
-        throw new FieldAlreadySpecifiedException(strtr('@field_label already specified for @bundle_label @id.', [
-          '@field_label' => $entity->get($field_name)->getFieldDefinition()->getLabel(),
-          '@bundle_label' => $bundle_label,
-          '@id' => $entity->id(),
-        ]));
+      // Allow modules to determine which fields should be check to determine
+      // if the automated classification is allowed.
+      $fields_to_check_context = ['entity' => $entity];
+      $this->getModuleHandler()->alter(
+        'ocha_content_classification_specified_field_check',
+        $fields_to_check,
+        $this,
+        $fields_to_check_context,
+      );
+
+      foreach ($fields_to_check as $field_name => $check) {
+        // We cannot classify an entity missing field.
+        if (!$entity->hasField($field_name)) {
+          throw new UnsupportedEntityException(strtr('@field_name missing for @bundle_label @id.', [
+            '@field_name' => $field_name,
+            '@bundle_label' => $bundle_label,
+            '@id' => $entity->id(),
+          ]));
+        }
+
+        // The field is not empty, we consider the classification done.
+        // @todo Check if we want to skip the full classification or simply
+        // skip the update of the field.
+        if ($check && !$entity->get($field_name)->isEmpty()) {
+          throw new FieldAlreadySpecifiedException(strtr('@field_label already specified for @bundle_label @id.', [
+            '@field_label' => $entity->get($field_name)->getFieldDefinition()->getLabel(),
+            '@bundle_label' => $bundle_label,
+            '@id' => $entity->id(),
+          ]));
+        }
       }
     }
 
@@ -439,6 +615,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     ClassificationMessage $message,
     ClassificationStatus $status,
     bool $new = FALSE,
+    ?array $updated_fields = NULL,
   ): void {
     // Extract necessary information from the entity.
     $entity_type_id = $entity->getEntityTypeId();
@@ -448,7 +625,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
 
     // When creating or resetting a record, if the status is not queued, then
     // we consider there was one attempt already.
-    $new_record_attempts = ($new && $status === ClassificationStatus::QUEUED) ? 0 : 1;
+    $new_record_attempts = ($new && $status === ClassificationStatus::Queued) ? 0 : 1;
 
     // Get the current timestamp.
     $time = time();
@@ -472,6 +649,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'changed' => $time,
           'message' => $message->value,
           'classifier' => $classifier,
+          'updated_fields' => json_encode($updated_fields),
         ])
         ->condition('entity_type_id', $entity_type_id)
         ->condition('entity_bundle', $entity_bundle)
@@ -493,6 +671,7 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
           'changed' => $time,
           'message' => $message->value,
           'classifier' => $classifier,
+          'updated_fields' => json_encode($updated_fields),
         ])
         ->execute();
     }
@@ -535,6 +714,9 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     if (isset($record['message'])) {
       $record['message'] = ClassificationMessage::tryFrom($record['message']) ?? '';
     }
+    if (isset($record['updated_fields'])) {
+      $record['updated_fields'] = json_decode($record['updated_fields']);
+    }
 
     return $record;
   }
@@ -548,6 +730,35 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       ->condition('entity_bundle', $entity->bundle())
       ->condition('entity_id', $entity->id())
       ->execute();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getWorkflowPermissions(): array {
+    $arguments = ['@workflow' => $this->label()];
+    $entity_type_id = $this->getTargetEntityTypeId();
+    $bundle = $this->getTargetBundle();
+
+    $permissions = [
+      'apply' => [
+        'id' => "apply ocha content classification to $entity_type_id $bundle",
+        'title' => $this->t('Apply content classification to @workflow', $arguments),
+        'description' => $this->t('Allow users to have their @workflow automatically classified.', $arguments),
+      ],
+      'bypass' => [
+        'id' => "bypass ocha content classification for $entity_type_id $bundle",
+        'title' => $this->t('Bypass content classification for @workflow', $arguments),
+        'description' => $this->t('Allow users to skip the automated classification when submitting @workflow.', $arguments),
+      ],
+      'requeue' => [
+        'id' => "requeue $entity_type_id $bundle for ocha content classification",
+        'title' => $this->t('Requeue @workflow for content classification', $arguments),
+        'description' => $this->t('Allow users to resubmit @workflow for automated classification.', $arguments),
+      ],
+    ];
+
+    return $permissions;
   }
 
   /**
@@ -574,6 +785,19 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
       $this->database = \Drupal::database();
     }
     return $this->database;
+  }
+
+  /**
+   * Get the module handler.
+   *
+   * @return \Drupal\Core\Extension\ModuleHandlerInterface
+   *   The module handler.
+   */
+  protected function getModuleHandler(): ModuleHandlerInterface {
+    if (!isset($this->moduleHandler)) {
+      $this->moduleHandler = \Drupal::moduleHandler();
+    }
+    return $this->moduleHandler;
   }
 
   /**

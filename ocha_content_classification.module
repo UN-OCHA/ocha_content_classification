@@ -27,8 +27,20 @@ function ocha_content_classification_entity_type_build(array &$entity_types): vo
  * Implements hook_entity_presave().
  */
 function ocha_content_classification_entity_presave(EntityInterface $entity): void {
+  $module_handler = \Drupal::moduleHandler();
+
+  // Give a chance to other modules to act before our actual presave hook
+  // implementation, for example, to enforce a requeue of the entity.
+  $module_handler->invokeAll('ocha_content_classification_pre_entity_presave', [$entity]);
+
+  // Actual presave implementation.
   \Drupal::service('ocha_content_classification.content_entity_classifier')
     ->entityBeforeSave($entity);
+
+  // Give a chance to other modules to act after our presave hook implementation
+  // since we may have added the `ocha_content_classification_status` flag to
+  // the entity.
+  $module_handler->invokeAll('ocha_content_classification_post_entity_presave', [$entity]);
 }
 
 /**
