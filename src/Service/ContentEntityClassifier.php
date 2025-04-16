@@ -14,6 +14,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
 use Drupal\ocha_content_classification\Enum\ClassificationMessage;
@@ -302,8 +303,8 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    // Check the permission to use the automated classification.
-    if (!$this->checkUserPermissions($entity, $workflow)) {
+    // Check the permission of the current user to use the classification.
+    if (!$this->checkUserPermissions($entity, $workflow, $this->currentUser)) {
       return;
     }
 
@@ -580,19 +581,24 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    *   The entity to potentially classify.
    * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
    *   Classification workflow.
+   * @param ?\Drupal\Core\Session\AccountInterface $account
+   *   Optional account to check the permissions against. If not defined we'll
+   *   try to get the user from the current revision, ownership or current user.
    *
    * @return bool
    *   TRUE if the user is allowed to use the automated classification.
    */
-  protected function checkUserPermissions(EntityInterface $entity, ClassificationWorkflowInterface $workflow): bool {
+  protected function checkUserPermissions(EntityInterface $entity, ClassificationWorkflowInterface $workflow, ?AccountInterface $account = NULL): bool {
     // We need to check the revision user if defined.
-    $account = $this->currentUser;
-    if (!$entity->isNew()) {
-      if ($entity instanceof RevisionLogInterface) {
-        $account = $entity->getRevisionUser();
-      }
-      elseif ($entity instanceof EntityOwnerInterface) {
-        $account = $entity->getOwner();
+    if (!isset($account)) {
+      $account = $this->currentUser;
+      if (!$entity->isNew()) {
+        if ($entity instanceof RevisionLogInterface) {
+          $account = $entity->getRevisionUser();
+        }
+        elseif ($entity instanceof EntityOwnerInterface) {
+          $account = $entity->getOwner();
+        }
       }
     }
 
