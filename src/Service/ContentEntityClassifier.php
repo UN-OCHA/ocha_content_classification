@@ -141,7 +141,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     if ($entity instanceof RevisionLogInterface) {
       $entity->setRevisionUserId($this->currentUser->id());
       $entity->setRevisionCreationTime(time());
-      $this->addEntityQueuedRevisionMessage($entity, TRUE);
+      $this->addEntityQueuedRevisionMessage($entity);
     }
     $entity->setNewRevision(TRUE);
     $entity->save();
@@ -531,20 +531,20 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       return;
     }
 
-    $message = ClassificationMessage::Queued->value;
+    $message = ClassificationMessage::Queued;
 
     if (!$replace) {
-      // Only add the message if not already in the current revision message.
-      $revision_message = $entity->getRevisionLogMessage() ?? '';
-      if (mb_strpos($revision_message, $message) === FALSE) {
-        $message = trim($revision_message . ' ' . $message);
-      }
-      else {
-        $message = $revision_message;
-      }
+      // Append the message to the previous revision log message, after removing
+      // old classification messages so that revision information not related to
+      // the classification are not lost.
+      $revision_log = $entity->getRevisionLogMessage() ?? '';
+      $revision_log = ClassificationMessage::addClassificationMessage($revision_log, $message);
+    }
+    else {
+      $revision_log = $message->value;
     }
 
-    $entity->setRevisionLogMessage($message);
+    $entity->setRevisionLogMessage($revision_log);
   }
 
   /**
