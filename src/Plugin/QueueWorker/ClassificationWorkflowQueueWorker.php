@@ -393,7 +393,14 @@ class ClassificationWorkflowQueueWorker extends QueueWorkerBase implements Conta
         $entity->setRevisionUserId($user_id);
       }
       $entity->setRevisionCreationTime(time());
-      $entity->setRevisionLogMessage($message->value);
+
+      // Append the message to the previous revision log message, after removing
+      // old classification messages so that revision information not related to
+      // the classification are not lost.
+      $revision_log = $entity->getRevisionLogMessage() ?? '';
+      $revision_log = ClassificationMessage::addClassificationMessage($revision_log, $message);
+
+      $entity->setRevisionLogMessage($revision_log);
     }
     $entity->setNewRevision(TRUE);
     $entity->save();
