@@ -537,7 +537,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
       // Append the message to the previous revision log message, after removing
       // old classification messages so that revision information not related to
       // the classification are not lost.
-      $revision_log = $entity->getRevisionLogMessage() ?? '';
+      $revision_log = (string) ($entity->getRevisionLogMessage() ?? '');
       $revision_log = ClassificationMessage::addClassificationMessage($revision_log, $message);
     }
     else {
