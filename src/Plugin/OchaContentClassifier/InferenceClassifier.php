@@ -601,11 +601,12 @@ class InferenceClassifier extends ClassifierPluginBase {
     $query->accessCheck(FALSE);
     $query->condition($entity_type->getKey('bundle'), $vocabulary, '=');
     $query->condition($entity_type->getKey('published'), 1, '=');
+    $query->sort('weight', 'ASC');
+    $query->sort('name', 'ASC');
 
     $ids = $query->execute();
     $terms = $storage->loadMultiple($ids);
 
-    ksort($terms);
     return $terms;
   }
 
