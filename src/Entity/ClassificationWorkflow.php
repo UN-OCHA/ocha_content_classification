@@ -637,7 +637,9 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
     $existing_record = $this->getClassificationProgress($entity);
 
     // Make sure $updated_fields is an array.
-    $updated_fields = array_values($updated_fields);
+    if (!is_null($updated_fields)) {
+      $updated_fields = array_values($updated_fields);
+    }
 
     if (!empty($existing_record)) {
       // Update existing record. If new was specified, reset the user ID,
