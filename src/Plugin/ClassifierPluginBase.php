@@ -162,10 +162,10 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
       [$entity, $workflow, $this, $entity_updated_fields, $data]
     ) ?? [];
 
-    $entity_updated_fields = array_unique(array_merge(
+    $entity_updated_fields = array_values(array_unique(array_merge(
       $entity_updated_fields,
       $hook_entity_updated_fields,
-    ));
+    )));
 
     return $entity_updated_fields;
   }
