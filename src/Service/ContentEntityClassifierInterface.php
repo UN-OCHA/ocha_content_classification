@@ -8,6 +8,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
+use Drupal\ocha_content_classification\Enum\ClassificationStatus;
 
 /**
  * Interface for a service to handle content entity classification.
@@ -44,6 +45,17 @@ interface ContentEntityClassifierInterface {
    *   The classification workflow if it exists and is enabled.
    */
   public function getWorkflowForEntity(EntityInterface $entity, bool $check_enabled = TRUE): ?ClassificationWorkflowInterface;
+
+  /**
+   * Get the entity classification status.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   Entity to get classification status for.
+   *
+   * @return ?\Drupal\ocha_content_classification\Enum\ClassificationStatus
+   *   The entity classification status or NULL if no status is found.
+   */
+  public function getEntityClassificationStatus(EntityInterface $entity): ?ClassificationStatus;
 
   /**
    * Requeue an entity for classification if valid.

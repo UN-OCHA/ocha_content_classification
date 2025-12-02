@@ -309,3 +309,27 @@ function hook_ocha_content_classification_validate_entity_data_alter(
     $invalid = TRUE;
   }
 }
+
+/**
+ * Alter the fields to hide in the form.
+ *
+ * @param array $fields_to_hide
+ *   Associative array of fields to hide with field names as keys and TRUE or
+ *   FALSE as values.
+ * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+ *   The workflow being used for classification.
+ * @param array $context
+ *   An array containing contextual information:
+ *   - entity: The entity being classified.
+ *   - classifier: The classifier plugin.
+ *   - form: The form being altered.
+ *   - form_state: The form state.
+ */
+function hook_ocha_content_classification_hide_form_fields_alter(
+  array &$fields_to_hide,
+  ClassificationWorkflowInterface $workflow,
+  array $context,
+) {
+  // Do not hide a classifiable field.
+  $fields_to_hide['field_my_custom_text'] = FALSE;
+}
