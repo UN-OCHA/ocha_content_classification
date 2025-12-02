@@ -124,6 +124,22 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
   /**
    * {@inheritdoc}
    */
+  public function getEntityClassificationStatus(EntityInterface $entity): ?ClassificationStatus {
+    $workflow = $this->getWorkflowForEntity($entity);
+    if (empty($workflow)) {
+      return NULL;
+    }
+    $progress = $workflow->getClassificationProgress($entity);
+    if (empty($progress)) {
+      return NULL;
+    }
+    $status = $progress['status'] ?? NULL;
+    return ($status instanceof ClassificationStatus) ? $status : NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function requeueEntity(ContentEntityInterface $entity): bool {
     /** @var \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow */
     $workflow = $this->getWorkflowForEntity($entity);
@@ -332,15 +348,32 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     //
     // @todo show a message indicating the automatic tagging instead of
     // fully hiding them?
+    $fields_to_hide = [];
     foreach ($workflow->getEnabledClassifiableFields() as $field_name => $field_info) {
       if ($entity->hasField($field_name) && $workflow->getClassifiableFieldHide($field_name)) {
-        $form[$field_name]['#access'] = FALSE;
-        $form[$field_name]['#required'] = FALSE;
+        $fields_to_hide[$field_name] = TRUE;
       }
     }
     foreach ($workflow->getEnabledFillableFields() as $field_name => $field_info) {
       if ($entity->hasField($field_name) && $workflow->getFillableFieldHide($field_name)) {
+        $fields_to_hide[$field_name] = TRUE;
+      }
+    }
+
+    // Give a chance to other modules to alter the fields to hide.
+    $context = [
+      'entity' => $entity,
+      'classifier' => $this,
+      'form' => $form,
+      'form_state' => $form_state,
+    ];
+    $this->moduleHandler->alter('ocha_content_classification_hide_form_fields', $fields_to_hide, $workflow, $context);
+
+    // Hide the fields.
+    foreach ($fields_to_hide as $field_name => $hide) {
+      if ($hide && isset($form[$field_name])) {
         $form[$field_name]['#access'] = FALSE;
+        // We need to remove the requirement to avoid validation errors.
         $form[$field_name]['#required'] = FALSE;
       }
     }
