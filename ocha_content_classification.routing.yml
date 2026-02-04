@@ -6,6 +6,14 @@ entity.ocha_classification_workflow.collection:
   requirements:
     _permission: 'administer ocha content classification workflows'
 
+entity.ocha_classification_workflow.canonical:
+  path: '/admin/config/ocha-content-classification/classification-workflows/{ocha_classification_workflow}'
+  defaults:
+    _entity_form: 'ocha_classification_workflow.edit'
+    _title: 'Edit Classification Workflow'
+  requirements:
+    _permission: 'administer ocha content classification workflows'
+
 entity.ocha_classification_workflow.add_form:
   path: '/admin/config/ocha-content-classification/classification-workflows/add'
   defaults:
