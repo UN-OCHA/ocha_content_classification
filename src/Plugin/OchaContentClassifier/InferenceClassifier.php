@@ -437,6 +437,19 @@ class InferenceClassifier extends ClassifierPluginBase {
       '#max' => 4096,
     ];
 
+    $form['inference']['thinking_mode'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Thinking mode'),
+      '#description' => $this->t('Thinking mode for the AI model. Higher levels allow more extended reasoning before answering. Not supported by all models.'),
+      '#options' => [
+        'none' => $this->t('None'),
+        'low' => $this->t('Low'),
+        'medium' => $this->t('Medium'),
+        'high' => $this->t('High'),
+      ],
+      '#default_value' => $config['inference']['thinking_mode'] ?? 'none',
+    ];
+
     $system_prompt = $config['inference']['system_prompt'] ?? '';
     $form['inference']['system_prompt'] = [
       '#type' => 'textarea',
@@ -927,6 +940,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       'temperature' => (float) $this->getPluginSetting('inference.temperature'),
       'top_p' => (float) $this->getPluginSetting('inference.top_p'),
       'max_tokens' => (int) $this->getPluginSetting('inference.max_tokens'),
+      'thinking_mode' => (string) $this->getPluginSetting('inference.thinking_mode', 'none'),
     ];
 
     // Retrieve the AI plugin.
