@@ -179,6 +179,9 @@ ocha_content_classification.plugin.classifier.inference:
         max_tokens:
           type: integer
           label: 'Max tokens.'
+        thinking_mode:
+          type: string
+          label: 'Thinking mode.'
         system_prompt:
           type: text
           label: 'System prompt.'
