@@ -188,3 +188,124 @@ ocha_content_classification.plugin.classifier.inference:
         prompt:
           type: text
           label: 'Prompt.'
+
+# Structured inference classifier plugin settings.
+ocha_content_classification.plugin.classifier.structured_inference:
+  type: ocha_content_classification.plugin.classifier
+  label: 'Structured inference classifier plugin base settings.'
+  mapping:
+    analyzable:
+      type: mapping
+      label: 'Analyzable Content.'
+      mapping:
+        fields:
+          type: sequence
+          label: 'Analyzable fields.'
+          sequence:
+            type: mapping
+            mapping:
+              placeholder:
+                type: string
+                label: 'Placeholder to use for structured inputs.'
+              processor:
+                type: string
+                label: 'Processor.'
+              file:
+                type: boolean
+                label: 'Indicates if the content of the field should be passed as files to the model.'
+    classifiable:
+      type: mapping
+      label: 'Classifiable Content.'
+      mapping:
+        vocabularies:
+          type: mapping
+          label: 'Vocabulary settings keyed by vocabulary machine name.'
+          mapping:
+            '*':
+              type: mapping
+              label: 'Per-vocabulary settings.'
+              mapping:
+                description:
+                  type: text
+                  label: 'Vocabulary description for JSON Schema $defs.'
+                value:
+                  type: string
+                  label: 'Value field key or custom.'
+                term_title_source:
+                  type: string
+                  label: 'Source for JSON Schema title when not custom.'
+                term_description_source:
+                  type: string
+                  label: 'Source for JSON Schema description when not custom.'
+                terms:
+                  type: mapping
+                  label: 'Per-term overrides when value is custom.'
+                  mapping:
+                    '*':
+                      type: mapping
+                      mapping:
+                        include:
+                          type: boolean
+                          label: 'Include term in schema.'
+                        value:
+                          type: string
+                          label: 'Const value for matching.'
+                        title:
+                          type: string
+                          label: 'JSON Schema title.'
+                        description:
+                          type: text
+                          label: 'JSON Schema description.'
+        fields:
+          type: sequence
+          label: 'Classifiable fields.'
+          sequence:
+            type: mapping
+            mapping:
+              placeholder:
+                type: string
+                label: 'Structured output key for the field.'
+              description:
+                type: text
+                label: 'Field description for prompts and structured schema.'
+    fillable:
+      type: mapping
+      label: 'Fillable Content.'
+      mapping:
+        fields:
+          type: sequence
+          label: 'Fillable field properties.'
+          sequence:
+            type: mapping
+            mapping:
+              placeholder:
+                type: string
+                label: 'Structured output key for the field property.'
+              description:
+                type: text
+                label: 'Field description for prompts and structured schema.'
+    inference:
+      type: mapping
+      label: 'Inference settings.'
+      mapping:
+        plugin_id:
+          type: string
+          label: 'OCHA AI completion plugin ID.'
+        temperature:
+          type: float
+          label: 'Temperature.'
+        top_p:
+          type: float
+          label: 'Nucleus sampling (top_p).'
+        max_tokens:
+          type: integer
+          label: 'Max tokens.'
+        thinking_mode:
+          type: string
+          label: 'Thinking mode.'
+        system_prompt:
+          type: text
+          label: 'System prompt.'
+        prompt:
+          type: text
+          label: 'Prompt.'
