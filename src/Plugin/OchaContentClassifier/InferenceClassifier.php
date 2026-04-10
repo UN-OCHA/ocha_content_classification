@@ -320,7 +320,7 @@ class InferenceClassifier extends ClassifierPluginBase {
 
       $form['classifiable']['fields'][$field_name]['terms']['#states'] = [
         'visible' => [
-          ':input[name="classifiable[fields][' . $field_name . '][property]"]' => ['value' => 'cusom'],
+          ':input[name="classifiable[fields][' . $field_name . '][property]"]' => ['value' => 'custom'],
         ],
       ];
     }
@@ -473,7 +473,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     ];
 
     // Show the settings if there is no selected inference plugin.
-    $form['inference']['#open'] = empty($config['inference.plugin_id']);
+    $form['inference']['#open'] = empty($config['inference']['plugin_id']);
 
     return $form;
   }
@@ -558,7 +558,7 @@ class InferenceClassifier extends ClassifierPluginBase {
             $field_definition = $field_definitions[$field_name];
 
             return $this->t('@field_label - @property_label', [
-              '@field_label' => $field_definition->getlabel(),
+              '@field_label' => $field_definition->getLabel(),
               '@property_label' => $this->getFieldPropertyLabel($field_definition, $property),
             ]);
           }
@@ -659,7 +659,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    *   and the field labels as values.
    */
   protected function getTaxonomyProperties(string $vocabulary): array {
-    $field_defintions = $this->entityFieldManager->getFieldDefinitions('taxonomy_term', $vocabulary);
+    $field_definitions = $this->entityFieldManager->getFieldDefinitions('taxonomy_term', $vocabulary);
 
     $allowed_types = ['string', 'integer'];
     $disallowed_fields = ['moderation_status', 'weight', 'parent'];
@@ -670,7 +670,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       $properties['custom'] = $this->t('Custom');
     }
 
-    foreach ($field_defintions as $field_name => $field_definition) {
+    foreach ($field_definitions as $field_name => $field_definition) {
       if ($field_definition->isInternal() || $field_definition->isComputed() || $field_definition->isReadOnly()) {
         continue;
       }
@@ -885,7 +885,8 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @param ?array $enabled_fields
    *   List of enabled fields for the workflow. This can be used to override the
    *   entity fields to use for the inference and to populate after it. This
-   *   should contain data as return by ::getEnabledFields() of this classifier.
+   *   should contain data as returned by ::getEnabledFields() of this
+   *   classifier.
    *
    * @return ?array
    *   The list of the entity fields that were updated if the classification was
@@ -1124,7 +1125,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Extract and processes tagged content, matching terms to their IDs.
+   * Extract and process tagged content, matching terms to their IDs.
    *
    * @param string $text
    *   The text containing tagged content.
@@ -1150,7 +1151,7 @@ class InferenceClassifier extends ClassifierPluginBase {
     if (mb_strpos($content, "</") !== FALSE) {
       $items = $this->extractValuesBetweenTags($content);
     }
-    // Otherwise consider they are a comma separated list of values.
+    // Otherwise treat them as a comma-separated list of values.
     else {
       $items = array_map('trim', explode(',', $content));
     }
@@ -1381,12 +1382,12 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Get the files from analyzable fields to pass the AI.
+   * Get the files from analyzable fields to pass to the AI.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
    * @param array $fields
-   *   Analyzabled fields.
+   *   Analyzable fields.
    *
    * @return array
    *   Files to pass to the AI
@@ -1624,7 +1625,7 @@ class InferenceClassifier extends ClassifierPluginBase {
   }
 
   /**
-   * Get the enabled (with a placeholders) analyzable or classifiable fields.
+   * Get the enabled (with placeholders) analyzable or classifiable fields.
    *
    * @param string $type
    *   Either 'analyzable', 'classifiable' or 'fillable'.
@@ -1665,7 +1666,7 @@ class InferenceClassifier extends ClassifierPluginBase {
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
    *   Field definition.
-   * @param stirng $property
+   * @param string $property
    *   Field property.
    *
    * @return string|\Drupal\Component\Render\MarkupInterface
