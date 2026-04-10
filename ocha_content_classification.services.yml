@@ -22,9 +22,19 @@ services:
       - '@entity_type.manager'
       - '@queue'
       - '@module_handler'
+      - '@ocha_content_classification.classification_simulation_context'
+
+  ocha_content_classification.classification_simulation_context:
+    class: Drupal\ocha_content_classification\Service\ClassificationSimulationContext
 
   ocha_content_classification.classification_requeue_access_check:
     class: Drupal\ocha_content_classification\Access\ClassificationRequeueAccessCheck
     arguments: ['@ocha_content_classification.content_entity_classifier']
     tags:
       - { name: access_check, applies_to: _classification_requeue_access_check }
+
+  ocha_content_classification.classification_simulate_access_check:
+    class: Drupal\ocha_content_classification\Access\ClassificationSimulateAccessCheck
+    arguments: ['@ocha_content_classification.content_entity_classifier']
+    tags:
+      - { name: access_check, applies_to: _classification_simulate_access_check }

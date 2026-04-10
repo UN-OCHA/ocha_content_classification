@@ -27,6 +27,7 @@ use Drupal\ocha_content_classification\Helper\EntityHelper;
 use Drupal\ocha_content_classification\Helper\TextHelper;
 use Drupal\ocha_content_classification\Plugin\AnalyzableFieldProcessorPluginManagerInterface;
 use Drupal\ocha_content_classification\Plugin\ClassifierPluginBase;
+use Drupal\ocha_content_classification\Service\ClassificationSimulationContext;
 use Drupal\taxonomy\TermInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -87,6 +88,8 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    *   The module handler.
    * @param \Drupal\ocha_content_classification\Plugin\AnalyzableFieldProcessorPluginManagerInterface $analyzableFieldProcessorPluginManager
    *   The analyzable field processor plugin manager.
+   * @param \Drupal\ocha_content_classification\Service\ClassificationSimulationContext $classificationSimulationContext
+   *   Simulation context.
    * @param \Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface $completionPluginManager
    *   The completion plugin manager.
    */
@@ -101,6 +104,7 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
     protected Connection $database,
     protected ModuleHandlerInterface $moduleHandler,
     protected AnalyzableFieldProcessorPluginManagerInterface $analyzableFieldProcessorPluginManager,
+    protected ClassificationSimulationContext $classificationSimulationContext,
     protected CompletionPluginManagerInterface $completionPluginManager,
   ) {
     parent::__construct(
@@ -114,6 +118,7 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
       $database,
       $moduleHandler,
       $analyzableFieldProcessorPluginManager,
+      $classificationSimulationContext,
     );
   }
 
@@ -132,6 +137,7 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
       $container->get('database'),
       $container->get('module_handler'),
       $container->get('plugin.manager.ocha_content_classification.analyzable_field_processor'),
+      $container->get('ocha_content_classification.classification_simulation_context'),
       $container->get('plugin.manager.ocha_ai.completion'),
     );
   }

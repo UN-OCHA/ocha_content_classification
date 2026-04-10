@@ -33,3 +33,7 @@ entity.ocha_classification_workflow.delete_form:
 ocha_content_classification.requeue:
   deriver: 'Drupal\ocha_content_classification\Plugin\Derivative\RequeueClassificationLocalTask'
   weight: 50
+
+ocha_content_classification.simulate:
+  deriver: 'Drupal\ocha_content_classification\Plugin\Derivative\SimulateClassificationLocalTask'
+  weight: 51

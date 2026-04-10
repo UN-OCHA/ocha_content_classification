@@ -66,7 +66,9 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
    * @param \Drupal\Core\Queue\QueueFactory $queueFactory
    *   The queue factory.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
-   *   The queue factory.
+   *   The module handler.
+   * @param \Drupal\ocha_content_classification\Service\ClassificationSimulationContext $classificationSimulationContext
+   *   The classification simulation context.
    */
   public function __construct(
     protected ConfigFactoryInterface $configFactory,
@@ -75,6 +77,7 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     protected EntityTypeManagerInterface $entityTypeManager,
     protected QueueFactory $queueFactory,
     protected ModuleHandlerInterface $moduleHandler,
+    protected ClassificationSimulationContext $classificationSimulationContext,
   ) {}
 
   /**
@@ -135,6 +138,54 @@ class ContentEntityClassifier implements ContentEntityClassifierInterface {
     }
     $status = $progress['status'] ?? NULL;
     return ($status instanceof ClassificationStatus) ? $status : NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function simulateClassification(ContentEntityInterface $entity): array {
+    $workflow = $this->getWorkflowForEntity($entity);
+    if (empty($workflow) || $workflow->getClassifierPlugin() === NULL) {
+      return [
+        'success' => FALSE,
+        'error' => 'No enabled classification workflow or classifier for this entity.',
+      ];
+    }
+
+    $clone = clone $entity;
+    foreach ($workflow->getEnabledFields(['classifiable', 'fillable']) as $field_name => $_) {
+      if ($clone->hasField($field_name)) {
+        $clone->set($field_name, NULL);
+      }
+    }
+
+    $this->classificationSimulationContext->enter();
+    $updated_fields = NULL;
+    try {
+      $updated_fields = $workflow->classifyEntity($clone, FALSE);
+    }
+    catch (\Throwable $e) {
+      return [
+        'success' => FALSE,
+        'error' => $e->getMessage(),
+      ];
+    }
+    finally {
+      $this->classificationSimulationContext->exit();
+    }
+
+    if ($updated_fields === NULL) {
+      return [
+        'success' => FALSE,
+        'error' => 'Classification did not run (validation returned no result).',
+      ];
+    }
+
+    return [
+      'success' => TRUE,
+      'updated_fields' => $updated_fields,
+      'simulated' => $clone,
+    ];
   }
 
   /**

@@ -70,8 +70,41 @@ final class OchaContentClassificationRoutes implements ContainerInjectionInterfa
         $canonical_path = $entity_type->getLinkTemplate('canonical');
         $route = $this->buildClassificationRequeueRoute($entity_type_id, $canonical_path);
         $collection->add("entity.$entity_type_id.ocha_content_classification_requeue", $route);
+        $simulate_route = $this->buildClassificationSimulateRoute($entity_type_id, $canonical_path);
+        $collection->add("entity.$entity_type_id.ocha_content_classification_simulate", $simulate_route);
       }
     }
+  }
+
+  /**
+   * Build a simulate route for the given entity type.
+   *
+   * @param string $entity_type_id
+   *   The entity type ID.
+   * @param string $canonical_path
+   *   The canonical path for the entity type.
+   *
+   * @return \Symfony\Component\Routing\Route
+   *   The built route.
+   */
+  private function buildClassificationSimulateRoute(string $entity_type_id, string $canonical_path): Route {
+    return new Route(
+      $canonical_path . '/ocha-content-classification-simulate',
+      [
+        '_form' => '\Drupal\ocha_content_classification\Form\ClassificationSimulateForm',
+        '_title' => 'Simulate classification',
+        'entity_type' => $entity_type_id,
+      ],
+      [
+        '_classification_simulate_access_check' => 'TRUE',
+        '_entity_access' => $entity_type_id . '.update',
+      ],
+      [
+        'parameters' => [
+          $entity_type_id => ['type' => 'entity:' . $entity_type_id],
+        ],
+      ]
+    );
   }
 
   /**

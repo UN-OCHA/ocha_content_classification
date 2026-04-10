@@ -443,12 +443,16 @@ interface ClassificationWorkflowInterface extends ConfigEntityInterface {
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity to classify.
+   * @param bool $check_progress_status
+   *   Whether to enforce classification progress record status (queued vs
+   *   completed/failed/attempts). Set to FALSE for simulation or other cases
+   *   where the progress table should not block classification.
    *
    * @return ?array
    *   The list of the entity fields that were updated if the classification was
    *   successful, NULL otherwise.
    */
-  public function classifyEntity(ContentEntityInterface $entity): ?array;
+  public function classifyEntity(ContentEntityInterface $entity, bool $check_progress_status = TRUE): ?array;
 
   /**
    * Check if an entity can be processed by the workflow.

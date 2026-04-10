@@ -494,8 +494,8 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
   /**
    * {@inheritdoc}
    */
-  public function classifyEntity(ContentEntityInterface $entity): ?array {
-    if ($this->validateEntity($entity)) {
+  public function classifyEntity(ContentEntityInterface $entity, bool $check_progress_status = TRUE): ?array {
+    if ($this->validateEntity($entity, $check_progress_status)) {
       return $this->getClassifierPlugin()?->classifyEntity($entity, $this);
     }
     return NULL;
@@ -760,6 +760,11 @@ class ClassificationWorkflow extends ConfigEntityBase implements ClassificationW
         'id' => "requeue $entity_type_id $bundle for ocha content classification",
         'title' => $this->t('Requeue @workflow for content classification', $arguments),
         'description' => $this->t('Allow users to resubmit @workflow for automated classification.', $arguments),
+      ],
+      'simulate' => [
+        'id' => "simulate $entity_type_id $bundle for ocha content classification",
+        'title' => $this->t('Simulate @workflow classification', $arguments),
+        'description' => $this->t('Allow users to run a dry-run classification and compare results without saving.', $arguments),
       ],
     ];
 
