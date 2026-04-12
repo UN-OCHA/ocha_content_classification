@@ -49,6 +49,11 @@ function hook_ocha_content_classification_classified_fields_alter(
  * This hook is invoked after an entity has been classified, allowing modules
  * to perform additional operations.
  *
+ * This hook is not invoked during a classification simulation (the
+ * “Simulate classification” UI). In that mode the classifier updates an
+ * in-memory clone only; hooks are skipped so implementations cannot
+ * accidentally persist changes to the live entity.
+ *
  * @param \Drupal\Core\Entity\EntityInterface $entity
  *   The entity that was classified.
  * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow

@@ -71,6 +71,21 @@ interface ContentEntityClassifierInterface {
   public function requeueEntity(ContentEntityInterface $entity): bool;
 
   /**
+   * Run classification on a clone without saving (simulation / evaluation).
+   *
+   * Classifiable and fillable fields are cleared on the clone before
+   * inference. Classification progress is not checked or updated.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The source entity (unchanged).
+   *
+   * @return array
+   *   Keys: success (bool), updated_fields (string[], if success), simulated
+   *   (ContentEntityInterface, if success), error (string, if failure).
+   */
+  public function simulateClassification(ContentEntityInterface $entity): array;
+
+  /**
    * Act on an entity before it is saved.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
