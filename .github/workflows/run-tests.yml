@@ -17,17 +17,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        drupal-core: ['10.4.x']
-        php-versions: ['8.3']
+        drupal-core: ['11.x']
+        php-versions: ['8.5']
     steps:
       - name: Checkout Drupal core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: drupal/drupal
           ref: ${{ matrix.drupal-core }}
 
       - name: Checkout module
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: modules/contrib/ocha_content_classification
 
@@ -61,7 +61,7 @@ jobs:
           echo "DRUPAL_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
 
       - name: Install drush
-        run: composer require "drush/drush ^12.0"
+        run: composer require "drush/drush ^13.0"
 
       - name: Start MySql service
         run: |
@@ -75,7 +75,7 @@ jobs:
 
       - name: Run module tests
         run: |
-          XDEBUG_MODE=coverage php -d zend_extension=xdebug ./vendor/bin/phpunit --bootstrap core/tests/bootstrap.php \
+          XDEBUG_MODE=coverage php ./vendor/bin/phpunit --bootstrap core/tests/bootstrap.php \
             --coverage-clover ./clover.xml \
             -c modules/contrib/ocha_content_classification/phpunit.xml modules/contrib/ocha_content_classification
 
