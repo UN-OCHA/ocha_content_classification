@@ -16,8 +16,8 @@
         }
     ],
     "require": {
-        "php": ">=8.3",
-        "unocha/ocha_ai": "^1.11"
+        "php": ">=8.5",
+        "unocha/ocha_ai": "^1.20"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",

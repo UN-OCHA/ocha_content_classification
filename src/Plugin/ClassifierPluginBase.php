@@ -12,6 +12,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
+use Drupal\ocha_content_classification\Service\ClassificationSimulationContext;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -42,6 +43,8 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
    *   The module handler.
    * @param \Drupal\ocha_content_classification\Plugin\AnalyzableFieldProcessorPluginManagerInterface $analyzableFieldProcessorPluginManager
    *   The analyzable field processor plugin manager.
+   * @param \Drupal\ocha_content_classification\Service\ClassificationSimulationContext $classificationSimulationContext
+   *   Simulation context (dry-run classification without invoking post hooks).
    */
   public function __construct(
     array $configuration,
@@ -54,6 +57,7 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
     protected Connection $database,
     protected ModuleHandlerInterface $moduleHandler,
     protected AnalyzableFieldProcessorPluginManagerInterface $analyzableFieldProcessorPluginManager,
+    protected ClassificationSimulationContext $classificationSimulationContext,
   ) {
     parent::__construct(
       $configuration,
@@ -79,6 +83,7 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
       $container->get('database'),
       $container->get('module_handler'),
       $container->get('plugin.manager.ocha_content_classification.analyzable_field_processor'),
+      $container->get('ocha_content_classification.classification_simulation_context'),
     );
   }
 
@@ -156,11 +161,15 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
     }
 
     // Allow other modules to do something with the classification data after
-    // the entity has been updated.
-    $hook_entity_updated_fields = $this->moduleHandler->invokeAll(
-      'ocha_content_classification_post_classify_entity',
-      [$entity, $workflow, $this, $entity_updated_fields, $data]
-    ) ?? [];
+    // the entity has been updated. Skip during simulation so hooks cannot
+    // persist side effects to storage.
+    $hook_entity_updated_fields = [];
+    if (!$this->classificationSimulationContext->isSimulating()) {
+      $hook_entity_updated_fields = $this->moduleHandler->invokeAll(
+        'ocha_content_classification_post_classify_entity',
+        [$entity, $workflow, $this, $entity_updated_fields, $data]
+      ) ?? [];
+    }
 
     $entity_updated_fields = array_values(array_unique(array_merge(
       $entity_updated_fields,
