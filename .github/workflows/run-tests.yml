@@ -7,7 +7,7 @@ env:
   MYSQL_PASSWORD: root
   MYSQL_DATABASE: drupal
   MYSQL_ROOT_PASSWORD: root
-  SIMPLETEST_DB: "mysql://root:root@localhost:3306/drupal"
+  SIMPLETEST_DB: "mysql://root:root@127.0.0.1:3306/drupal"
   SIMPLETEST_BASE_URL: "http://127.0.0.1:8080"
 
 jobs:
@@ -17,8 +17,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        drupal-core: ['11.x']
+        drupal-core: ['11.4.x']
         php-versions: ['8.5']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: drupal
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -h127.0.0.1 -uroot -proot" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - name: Checkout Drupal core
         uses: actions/checkout@v6
@@ -61,11 +70,7 @@ jobs:
           echo "DRUPAL_ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
 
       - name: Install drush
-        run: composer require "drush/drush ^13.0"
-
-      - name: Start MySql service
-        run: |
-          sudo /etc/init.d/mysql start
+        run: composer require "drush/drush ^13" -W
 
       - name: Install Drupal
         run: |

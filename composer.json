@@ -29,7 +29,8 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "drupal/core-composer-scaffold": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "symfony/runtime": true
         }
     },
     "scripts": {
