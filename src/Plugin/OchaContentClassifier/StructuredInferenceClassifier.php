@@ -15,6 +15,8 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\ocha_ai\Exception\CompletionInputException;
+use Drupal\ocha_ai\Exception\CompletionProviderException;
 use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_ai\Plugin\ocha_ai\Completion\CompletionCapability;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
@@ -746,14 +748,16 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    *   output to the entity.
    *
    * @throws \Drupal\ocha_content_classification\Exception\ClassificationFailedException
-   *   If the entity has no valid data to analyze.
+   *   If the entity has no valid data to analyze, or the completion input is
+   *   permanently unsuitable (for example input tokens exceeded).
    * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   If the selected completion plugin does not support structured output, or
    *   from term/value validation during output handling.
    * @throws \Drupal\ocha_content_classification\Exception\ClassifierPluginException
-   *   If the structured completion request fails.
+   *   If the completion provider or transport layer fails.
    * @throws \Drupal\ocha_content_classification\Exception\UnexpectedValueException
-   *   If the model output cannot be applied to the entity fields.
+   *   If the model output is empty/unusable or cannot be applied to the entity
+   *   fields.
    */
   public function queryModel(
     ContentEntityInterface $entity,
@@ -814,9 +818,17 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
 
     $json_schema = $this->buildStructuredJsonSchema($prepared_entity, $workflow, $enabled_fields);
 
-    $output = $plugin->queryStructured($prompt, $json_schema, $system_prompt, $parameters, $files);
+    try {
+      $output = $plugin->queryStructured($prompt, $json_schema, $system_prompt, $parameters, $files);
+    }
+    catch (CompletionInputException $exception) {
+      throw new ClassificationFailedException($exception->getMessage(), 0, $exception);
+    }
+    catch (CompletionProviderException $exception) {
+      throw new ClassifierPluginException($exception->getMessage(), 0, $exception);
+    }
     if ($output === NULL) {
-      throw new ClassifierPluginException('AI structured response error.');
+      throw new UnexpectedValueException('AI structured response error.');
     }
 
     return $this->applyStructuredOutput($entity, $workflow, $enabled_fields, $output);
