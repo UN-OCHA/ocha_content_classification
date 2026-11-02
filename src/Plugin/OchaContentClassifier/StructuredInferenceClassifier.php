@@ -1399,10 +1399,11 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
   /**
    * Builds JSON Schema $defs for a vocabulary used by a classifiable field.
    *
-   * The definition contains an anyOf array of const branches built from the
-   * term property map. Per-term descriptions and the vocabulary-level
-   * description come from vocabulary config; per-field description is placed
-   * on the schema property by the caller.
+   * When every term branch is const-only (no per-term title/description), the
+   * definition is a string enum. Otherwise it uses anyOf of const branches so
+   * each option can carry title/description. Vocabulary-level description comes
+   * from vocabulary config; per-field description is placed on the schema
+   * property by the caller.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
@@ -1412,7 +1413,8 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    *   Per-field settings (placeholder, description).
    *
    * @return array<string, mixed>|null
-   *   Definition with optional top-level description and anyOf, or NULL.
+   *   Definition with optional top-level description and either enum or anyOf,
+   *   or NULL.
    */
   protected function buildClassifiableTermSchemaDef(
     ContentEntityInterface $entity,
@@ -1470,9 +1472,26 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
       $branches[] = $branch;
     }
 
-    $def = [
-      'anyOf' => $branches,
-    ];
+    $const_only = TRUE;
+    foreach ($branches as $branch) {
+      if (array_keys($branch) !== ['const']) {
+        $const_only = FALSE;
+        break;
+      }
+    }
+
+    if ($const_only) {
+      $def = [
+        'type' => 'string',
+        'enum' => array_column($branches, 'const'),
+      ];
+    }
+    else {
+      $def = [
+        'anyOf' => $branches,
+      ];
+    }
+
     $vocabulary_description = trim((string) ($vocabulary_settings['description'] ?? ''));
     if ($vocabulary_description !== '') {
       $def['description'] = $vocabulary_description;
@@ -1487,6 +1506,8 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    * Vocabulary-level $defs are deduplicated: multiple classifiable fields that
    * reference the same vocabulary share one $defs entry. Per-field description
    * is placed on the schema property (alongside $ref or on the array wrapper).
+   * The finished schema is alterable via
+   * hook_ocha_content_classification_structured_json_schema_alter().
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
@@ -1603,6 +1624,18 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
     if (empty($schema['required'])) {
       unset($schema['required']);
     }
+
+    $context = [
+      'entity' => $entity,
+      'fields' => $fields,
+      'classifier' => $this,
+    ];
+    $this->moduleHandler->alter(
+      'ocha_content_classification_structured_json_schema',
+      $schema,
+      $workflow,
+      $context,
+    );
 
     return $schema;
   }
