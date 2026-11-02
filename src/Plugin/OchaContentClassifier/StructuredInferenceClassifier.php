@@ -15,6 +15,8 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\ocha_ai\Exception\CompletionInputException;
+use Drupal\ocha_ai\Exception\CompletionProviderException;
 use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_ai\Plugin\ocha_ai\Completion\CompletionCapability;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
@@ -746,14 +748,16 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    *   output to the entity.
    *
    * @throws \Drupal\ocha_content_classification\Exception\ClassificationFailedException
-   *   If the entity has no valid data to analyze.
+   *   If the entity has no valid data to analyze, or the completion input is
+   *   permanently unsuitable (for example input tokens exceeded).
    * @throws \Drupal\ocha_content_classification\Exception\InvalidConfigurationException
    *   If the selected completion plugin does not support structured output, or
    *   from term/value validation during output handling.
    * @throws \Drupal\ocha_content_classification\Exception\ClassifierPluginException
-   *   If the structured completion request fails.
+   *   If the completion provider or transport layer fails.
    * @throws \Drupal\ocha_content_classification\Exception\UnexpectedValueException
-   *   If the model output cannot be applied to the entity fields.
+   *   If the model output is empty/unusable or cannot be applied to the entity
+   *   fields.
    */
   public function queryModel(
     ContentEntityInterface $entity,
@@ -814,9 +818,17 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
 
     $json_schema = $this->buildStructuredJsonSchema($prepared_entity, $workflow, $enabled_fields);
 
-    $output = $plugin->queryStructured($prompt, $json_schema, $system_prompt, $parameters, $files);
+    try {
+      $output = $plugin->queryStructured($prompt, $json_schema, $system_prompt, $parameters, $files);
+    }
+    catch (CompletionInputException $exception) {
+      throw new ClassificationFailedException($exception->getMessage(), 0, $exception);
+    }
+    catch (CompletionProviderException $exception) {
+      throw new ClassifierPluginException($exception->getMessage(), 0, $exception);
+    }
     if ($output === NULL) {
-      throw new ClassifierPluginException('AI structured response error.');
+      throw new UnexpectedValueException('AI structured response error.');
     }
 
     return $this->applyStructuredOutput($entity, $workflow, $enabled_fields, $output);
@@ -1387,10 +1399,11 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
   /**
    * Builds JSON Schema $defs for a vocabulary used by a classifiable field.
    *
-   * The definition contains an anyOf array of const branches built from the
-   * term property map. Per-term descriptions and the vocabulary-level
-   * description come from vocabulary config; per-field description is placed
-   * on the schema property by the caller.
+   * When every term branch is const-only (no per-term title/description), the
+   * definition is a string enum. Otherwise it uses anyOf of const branches so
+   * each option can carry title/description. Vocabulary-level description comes
+   * from vocabulary config; per-field description is placed on the schema
+   * property by the caller.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
@@ -1400,7 +1413,8 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    *   Per-field settings (placeholder, description).
    *
    * @return array<string, mixed>|null
-   *   Definition with optional top-level description and anyOf, or NULL.
+   *   Definition with optional top-level description and either enum or anyOf,
+   *   or NULL.
    */
   protected function buildClassifiableTermSchemaDef(
     ContentEntityInterface $entity,
@@ -1458,9 +1472,26 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
       $branches[] = $branch;
     }
 
-    $def = [
-      'anyOf' => $branches,
-    ];
+    $const_only = TRUE;
+    foreach ($branches as $branch) {
+      if (array_keys($branch) !== ['const']) {
+        $const_only = FALSE;
+        break;
+      }
+    }
+
+    if ($const_only) {
+      $def = [
+        'type' => 'string',
+        'enum' => array_column($branches, 'const'),
+      ];
+    }
+    else {
+      $def = [
+        'anyOf' => $branches,
+      ];
+    }
+
     $vocabulary_description = trim((string) ($vocabulary_settings['description'] ?? ''));
     if ($vocabulary_description !== '') {
       $def['description'] = $vocabulary_description;
@@ -1475,6 +1506,8 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    * Vocabulary-level $defs are deduplicated: multiple classifiable fields that
    * reference the same vocabulary share one $defs entry. Per-field description
    * is placed on the schema property (alongside $ref or on the array wrapper).
+   * The finished schema is alterable via
+   * hook_ocha_content_classification_structured_json_schema_alter().
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity being classified.
@@ -1591,6 +1624,18 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
     if (empty($schema['required'])) {
       unset($schema['required']);
     }
+
+    $context = [
+      'entity' => $entity,
+      'fields' => $fields,
+      'classifier' => $this,
+    ];
+    $this->moduleHandler->alter(
+      'ocha_content_classification_structured_json_schema',
+      $schema,
+      $workflow,
+      $context,
+    );
 
     return $schema;
   }

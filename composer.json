@@ -17,7 +17,7 @@
     ],
     "require": {
         "php": ">=8.5",
-        "unocha/ocha_ai": "^1.20"
+        "unocha/ocha_ai": "^1.22"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
@@ -29,7 +29,8 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "drupal/core-composer-scaffold": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "symfony/runtime": true
         }
     },
     "scripts": {

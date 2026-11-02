@@ -316,6 +316,42 @@ function hook_ocha_content_classification_validate_entity_data_alter(
 }
 
 /**
+ * Alter the JSON Schema used for structured-output classification.
+ *
+ * Invoked after the structured inference classifier builds the schema. Property
+ * names must stay aligned with workflow placeholders. Classifiable values must
+ * remain strings (or string arrays) that match term by_value mappings, because
+ * applyStructuredOutput() is not altered by this hook.
+ *
+ * @param array $schema
+ *   The JSON Schema passed to the completion plugin.
+ * @param \Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface $workflow
+ *   The workflow being used for classification.
+ * @param array $context
+ *   An array containing contextual information:
+ *   - entity: The entity being classified.
+ *   - fields: Enabled fields by category (analyzable, classifiable, fillable).
+ *   - classifier: The classifier plugin.
+ */
+function hook_ocha_content_classification_structured_json_schema_alter(
+  array &$schema,
+  ClassificationWorkflowInterface $workflow,
+  array $context,
+) {
+  // Example: drop a fillable property from the schema.
+  unset($schema['properties']['my_fillable_key']);
+  if (isset($schema['required'])) {
+    $schema['required'] = array_values(array_filter(
+      $schema['required'],
+      static fn(string $key): bool => $key !== 'my_fillable_key',
+    ));
+    if ($schema['required'] === []) {
+      unset($schema['required']);
+    }
+  }
+}
+
+/**
  * Alter the fields to hide in the form.
  *
  * @param array $fields_to_hide

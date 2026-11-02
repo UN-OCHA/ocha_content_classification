@@ -15,6 +15,8 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\ocha_ai\Exception\CompletionInputException;
+use Drupal\ocha_ai\Exception\CompletionProviderException;
 use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
@@ -897,6 +899,14 @@ class InferenceClassifier extends ClassifierPluginBase {
    * @return ?array
    *   The list of the entity fields that were updated if the classification was
    *   successful, NULL otherwise.
+   *
+   * @throws \Drupal\ocha_content_classification\Exception\ClassificationFailedException
+   *   If the entity has no valid data to analyze, or the completion input is
+   *   permanently unsuitable (for example input tokens exceeded).
+   * @throws \Drupal\ocha_content_classification\Exception\ClassifierPluginException
+   *   If the completion provider or transport layer fails.
+   * @throws \Drupal\ocha_content_classification\Exception\UnexpectedValueException
+   *   If the model output is empty/unusable or cannot be parsed.
    */
   public function queryModel(
     ContentEntityInterface $entity,
@@ -955,9 +965,17 @@ class InferenceClassifier extends ClassifierPluginBase {
     $plugin = $this->completionPluginManager->getPlugin($plugin_id);
 
     // Query the LLM to classify the job.
-    $output = $plugin->query($prompt, $system_prompt, $parameters, TRUE, $files);
+    try {
+      $output = $plugin->query($prompt, $system_prompt, $parameters, TRUE, $files);
+    }
+    catch (CompletionInputException $exception) {
+      throw new ClassificationFailedException($exception->getMessage(), 0, $exception);
+    }
+    catch (CompletionProviderException $exception) {
+      throw new ClassifierPluginException($exception->getMessage(), 0, $exception);
+    }
     if ($output === NULL) {
-      throw new ClassifierPluginException('AI response error.');
+      throw new UnexpectedValueException('AI response error.');
     }
     elseif ($output === '') {
       throw new UnexpectedValueException('Empty AI output.');
