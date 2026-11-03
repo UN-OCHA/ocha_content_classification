@@ -17,6 +17,7 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\ocha_ai\Exception\CompletionInputException;
 use Drupal\ocha_ai\Exception\CompletionProviderException;
+use Drupal\ocha_ai\Exception\CompletionRequestException;
 use Drupal\ocha_ai\Plugin\CompletionPluginManagerInterface;
 use Drupal\ocha_ai\Plugin\ocha_ai\Completion\CompletionCapability;
 use Drupal\ocha_content_classification\Attribute\OchaContentClassifier;
@@ -756,7 +757,8 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
    * @throws \Drupal\ocha_content_classification\Exception\ClassifierPluginException
    *   If the completion provider or transport layer fails.
    * @throws \Drupal\ocha_content_classification\Exception\UnexpectedValueException
-   *   If the model output is empty/unusable or cannot be applied to the entity
+   *   If the model output is empty/unusable, a per-request model failure occurs
+   *   that may succeed on retry, or output cannot be applied to the entity
    *   fields.
    */
   public function queryModel(
@@ -823,6 +825,9 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
     }
     catch (CompletionInputException $exception) {
       throw new ClassificationFailedException($exception->getMessage(), 0, $exception);
+    }
+    catch (CompletionRequestException $exception) {
+      throw new UnexpectedValueException($exception->getMessage(), 0, $exception);
     }
     catch (CompletionProviderException $exception) {
       throw new ClassifierPluginException($exception->getMessage(), 0, $exception);
