@@ -1609,7 +1609,7 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
       $schema['$defs'] = $defs;
     }
 
-    foreach ($fields['fillable'] ?? [] as $settings) {
+    foreach ($fields['fillable'] ?? [] as $field_name_extended => $settings) {
       $placeholder = $settings['placeholder'] ?? '';
       if ($placeholder === '') {
         continue;
@@ -1619,6 +1619,18 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
         'type' => 'string',
       ];
       $fill_desc = trim((string) ($settings['description'] ?? ''));
+
+      [$field_name, $property] = explode('__', (string) $field_name_extended, 2);
+      $field_definition = $entity->get($field_name)->getFieldDefinition();
+      $max_length = $this->getFillablePropertyMaxLength($field_definition, $property);
+      if ($max_length !== NULL) {
+        $fillable_prop['maxLength'] = $max_length;
+        $max_note = (string) $this->t('Maximum length: @max characters.', [
+          '@max' => $max_length,
+        ]);
+        $fill_desc = $fill_desc !== '' ? $fill_desc . ' ' . $max_note : $max_note;
+      }
+
       if ($fill_desc !== '') {
         $fillable_prop['description'] = $fill_desc;
       }
@@ -1772,6 +1784,7 @@ class StructuredInferenceClassifier extends ClassifierPluginBase {
         ]));
       }
 
+      $content = $this->enforceFillablePropertyMaxLength($entity, $field_name, $property, $content);
       $classified_fields['fillable'][$field_name][$property] = $content;
     }
 

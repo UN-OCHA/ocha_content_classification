@@ -318,10 +318,10 @@ function hook_ocha_content_classification_validate_entity_data_alter(
 /**
  * Alter the JSON Schema used for structured-output classification.
  *
- * Invoked after the structured inference classifier builds the schema. Property
- * names must stay aligned with workflow placeholders. Classifiable values must
- * remain strings (or string arrays) that match term by_value mappings, because
- * applyStructuredOutput() is not altered by this hook.
+ * Invoked after the structured inference classifier builds the schema.
+ * Property names must stay aligned with workflow placeholders. Classifiable
+ * values must remain strings (or string arrays) that match term by_value
+ * mappings, because applyStructuredOutput() is not altered by this hook.
  *
  * @param array $schema
  *   The JSON Schema passed to the completion plugin.
@@ -330,7 +330,8 @@ function hook_ocha_content_classification_validate_entity_data_alter(
  * @param array $context
  *   An array containing contextual information:
  *   - entity: The entity being classified.
- *   - fields: Enabled fields by category (analyzable, classifiable, fillable).
+ *   - fields: Enabled fields by category (analyzable, classifiable,
+ *     fillable).
  *   - classifier: The classifier plugin.
  */
 function hook_ocha_content_classification_structured_json_schema_alter(
