@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\ocha_content_classification\Plugin;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\ocha_content_classification\Entity\ClassificationWorkflowInterface;
 use Drupal\ocha_content_classification\Service\ClassificationSimulationContext;
@@ -177,6 +179,77 @@ abstract class ClassifierPluginBase extends PluginBase implements ClassifierPlug
     )));
 
     return $entity_updated_fields;
+  }
+
+  /**
+   * Resolve the max length for a fillable field property from storage settings.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
+   *   The field definition.
+   * @param string $property
+   *   The field property name (e.g. "value" for title).
+   *
+   * @return int|null
+   *   Positive max length, or NULL when the field has no length constraint.
+   */
+  protected function getFillablePropertyMaxLength(FieldDefinitionInterface $field_definition, string $property): ?int {
+    // Storage max_length applies to string/text value columns (e.g. title →
+    // value). $property is retained for a consistent call-site API.
+    $max_length = $field_definition->getFieldStorageDefinition()->getSetting('max_length');
+    if (!is_numeric($max_length)) {
+      return NULL;
+    }
+    $max_length = (int) $max_length;
+    return $max_length > 0 ? $max_length : NULL;
+  }
+
+  /**
+   * Truncate a fillable string to the field property max length when needed.
+   *
+   * Oversized values are truncated word-safe with an ellipsis and a warning is
+   * logged. This must not throw: a long source title should not fail/retry
+   * classification of other fields.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity being classified.
+   * @param string $field_name
+   *   The field name.
+   * @param string $property
+   *   The field property name.
+   * @param string $value
+   *   The sanitized fillable value.
+   *
+   * @return string
+   *   The value, truncated when it exceeds the storage max length.
+   */
+  protected function enforceFillablePropertyMaxLength(
+    ContentEntityInterface $entity,
+    string $field_name,
+    string $property,
+    string $value,
+  ): string {
+    $field_definition = $entity->get($field_name)->getFieldDefinition();
+    $max_length = $this->getFillablePropertyMaxLength($field_definition, $property);
+    if ($max_length === NULL) {
+      return $value;
+    }
+
+    $original_length = mb_strlen($value);
+    if ($original_length <= $max_length) {
+      return $value;
+    }
+
+    $truncated = Unicode::truncate($value, $max_length, TRUE, TRUE);
+    $this->getLogger()->warning('Truncated fillable value for @entity_type @entity_id field @field property @property from @original_length to max length @max_length.', [
+      '@entity_type' => $entity->getEntityTypeId(),
+      '@entity_id' => $entity->id() ?? $entity->uuid() ?? 'unknown',
+      '@field' => $field_name,
+      '@property' => $property,
+      '@original_length' => (string) $original_length,
+      '@max_length' => (string) $max_length,
+    ]);
+
+    return $truncated;
   }
 
   /**

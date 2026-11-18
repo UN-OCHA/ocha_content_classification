@@ -1047,7 +1047,7 @@ class InferenceClassifier extends ClassifierPluginBase {
       $property = $settings['property'] ?? 'custom';
       $vocabulary = $this->getFieldVocabulary($entity->get($field_name)->getFieldDefinition());
 
-      $terms = match($property) {
+      $terms = match ($property) {
         'custom' => array_filter($settings['terms'] ?? []),
         default => $this->getTaxonomyTermPropertyValues($vocabulary, $property),
       };
@@ -1140,7 +1140,13 @@ class InferenceClassifier extends ClassifierPluginBase {
         ]));
       }
 
-      // Store the new field values.
+      // Truncate to the field max length when set, then store.
+      $content = $this->enforceFillablePropertyMaxLength(
+        $entity,
+        $field_name,
+        $property,
+        $content,
+      );
       $classified_fields['fillable'][$field_name][$property] = $content;
     }
 
@@ -1379,14 +1385,14 @@ class InferenceClassifier extends ClassifierPluginBase {
 
       $field = &$fields[$placeholder];
       if ($field['type'] === 'analyzable') {
-        return match($modifier) {
+        return match ($modifier) {
           '', ':value' => $this->getAnalyzableFieldValue($entity, $field),
           ':name' => $placeholder,
           default => '',
         };
       }
       elseif ($field['type'] === 'classifiable') {
-        return match($modifier) {
+        return match ($modifier) {
           '', ':value', ':list' => $this->getClassifiableFieldList($entity, $field, $list_prefixes),
           ':range' => $this->getClassifiableFieldListRange($entity, $field, $list_prefixes),
           ':random' => $this->getClassifiableFieldListRandomKey($entity, $field, $list_prefixes),
@@ -1396,7 +1402,7 @@ class InferenceClassifier extends ClassifierPluginBase {
         };
       }
       elseif ($field['type'] === 'fillable') {
-        return match($modifier) {
+        return match ($modifier) {
           '' => $placeholder,
           ':name' => $placeholder,
           default => '',
